@@ -1,27 +1,77 @@
-# TeachingOpen 2.8 群晖 NAS 一键容器部署
+# TeachingOpen 2.8 群晖 NAS 镜像部署
 
-这套文件支持群晖 `Container Manager` 直接创建项目，方式尽量靠近你截图里的“新建项目 -> 粘贴 compose -> 启动”。
+> 群晖方案和 Ubuntu 方案是分开的。  
+> `Ubuntu` 继续走一键脚本部署；`群晖 NAS` 走纯 `image:` 容器部署，不依赖 GitHub 拉源码。
+
+## 这是什么
+
+这份说明只针对群晖 `Container Manager`。
+
+目标是做到和你截图里的方式一致：
+
+- 在群晖里新建一个项目
+- 贴入 `docker-compose.yml`
+- `image:` 直接拉镜像启动
+- 数据通过本地目录挂载持久化
+
+也就是说，群晖方案的定位是：
+
+- 不要求在 NAS 里先下载整个源码仓库
+- 不依赖 `install.sh`
+- 不依赖 GitHub 一键脚本
+- 直接走镜像部署
 
 ## 适用前提
 
 - 群晖已安装 `Container Manager`
 - 建议 `x86_64` 机型
 - 建议内存至少 `4GB`，更稳妥是 `8GB`
-- 你已经把当前整个 `TeachingOpen2.8-ubuntu-local-deploy` 目录放到了群晖某个共享文件夹里
+- 你已经把自己的 `TeachingOpen` 镜像发布到了镜像仓库
 
-## 推荐目录
+目前群晖镜像部署使用这些镜像：
 
-建议在群晖 `File Station` 中准备类似目录：
+- `APP_IMAGE`
+- `WEB_IMAGE`
+- `MYSQL_IMAGE`
+- `redis:6.2-alpine`
+- `keking/kkfileview:latest`
+
+## 和 Ubuntu 的区别
+
+### Ubuntu
+
+- 走 `install.sh`
+- 支持一键脚本部署
+- 可从 GitHub 拉取源码后自动部署
+
+### 群晖 NAS
+
+- 不走 `install.sh`
+- 不走 GitHub 拉源码
+- 直接用 `docker-compose.synology.yml`
+- 所有核心服务都通过 `image:` 拉起
+
+这两种方式是故意分开的，不是同一套流程。
+
+## 准备文件夹
+
+打开群晖 `File Station`，在共享目录下创建类似目录：
 
 ```text
-/docker/teachingopen-ubuntu-local-deploy
+/docker/teachingopen
 ```
 
-把当前整个部署目录里的所有文件都上传进去，不要只传单个 compose 文件。
+然后在其中创建：
 
-## 先准备 .env
+```text
+/docker/teachingopen/data
+```
 
-在群晖里把：
+后续容器数据会保存在这里。
+
+## 准备 .env
+
+把仓库里的：
 
 ```text
 .env.synology.example
@@ -33,16 +83,16 @@
 .env
 ```
 
-然后按需修改：
+按需修改：
 
 - `WEB_PORT`
-  - 群晖对外访问端口，例如 `8080`
 - `PUBLIC_BASE_URL`
-  - 内网访问可写成 `http://群晖IP:8080`
-  - 如果你后面走公网映射，也可以写成 `http://你的外网地址:映射端口`
 - `MYSQL_ROOT_PASSWORD`
 - `MYSQL_PASSWORD`
 - `REDIS_PASSWORD`
+- `APP_IMAGE`
+- `WEB_IMAGE`
+- `MYSQL_IMAGE`
 
 示例：
 
@@ -56,9 +106,12 @@ MYSQL_USER=teachingopen
 MYSQL_PASSWORD=change-this-app-password
 REDIS_PASSWORD=change-this-redis-password
 JAVA_OPTS="-Xms512m -Xmx2048m -Dfile.encoding=UTF-8"
+APP_IMAGE=yourdockerhub/teachingopen-app:2.8.0
+WEB_IMAGE=yourdockerhub/teachingopen-web:2.8.0
+MYSQL_IMAGE=yourdockerhub/teachingopen-mysql:2.8.0
 ```
 
-## 方式 1：群晖界面导入项目
+## 创建项目
 
 1. 打开 `Container Manager`
 2. 进入 `项目`
@@ -69,10 +122,10 @@ JAVA_OPTS="-Xms512m -Xmx2048m -Dfile.encoding=UTF-8"
 teachingopen
 ```
 
-5. 路径选择你刚才上传的目录，例如：
+5. 路径选择：
 
 ```text
-/docker/teachingopen-ubuntu-local-deploy
+/docker/teachingopen
 ```
 
 6. 来源选择：
@@ -84,26 +137,25 @@ teachingopen
 7. 将 `docker-compose.synology.yml` 的内容粘贴进去
 8. 确认创建并启动
 
-## 方式 2：直接使用仓库里的 compose 文件
+## compose 示例
 
-如果你的群晖版本支持“从文件加载 compose”，直接选用：
+群晖部署的核心形式就是你要的这种：
 
-```text
-docker-compose.synology.yml
+```yaml
+services:
+  app:
+    image: yourdockerhub/teachingopen-app:2.8.0
+
+  nginx:
+    image: yourdockerhub/teachingopen-web:2.8.0
+
+  mysql:
+    image: yourdockerhub/teachingopen-mysql:2.8.0
 ```
 
-项目路径仍然选择整个部署目录。
+正式完整文件见：
 
-## 这套群晖部署会自动做什么
-
-- 初始化 `MySQL`
-- 初始化 `Redis`
-- 启动 `TeachingOpen` 后端
-- 启动 `Nginx`
-- 启动 `kkFileView`
-- 自动解压并修补前端静态包
-
-也就是说，你不需要再手动解压前端 zip。
+- `docker-compose.synology.yml`
 
 ## 启动后访问
 
@@ -135,14 +187,14 @@ http://192.168.1.100:8080
 
 - MySQL 需要初始化
 - SQL 需要导入
-- 前端静态包需要自动解压
+- 镜像需要首次拉取
 
-如果刚启动时打不开，先在 `Container Manager` 里看各容器日志，重点看：
+如果刚启动时打不开，优先查看：
 
 - `teachingopen-mysql`
 - `teachingopen-app`
 - `teachingopen-nginx`
-- `teachingopen-web-prep`
+- `teachingopen-kkfileview`
 
 ## 外网访问说明
 
@@ -164,6 +216,7 @@ PUBLIC_BASE_URL=http://你的公网IP或域名:28080
 
 ## 注意事项
 
-- 这套方案比 Ubuntu 脚本部署更适合群晖，因为它不依赖 `apt-get`
+- 群晖方案默认就是镜像部署，不是源码部署
+- 如果你还没有把 `TeachingOpen` 的三个自定义镜像推到 Docker Hub 或其它镜像仓库，这个方案还不能直接启动
 - 如果群晖是 `ARM` 机型，个别镜像可能存在兼容性风险，优先建议 `x86_64`
-- 如果你是通过 GitHub 同步这个目录到群晖，也可以继续用这套文件，不冲突
+- 如果需要像截图里那样直接 `image: xxx` 拉取，关键前提就是这些镜像地址必须真实存在

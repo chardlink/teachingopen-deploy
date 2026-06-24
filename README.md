@@ -31,9 +31,9 @@
 - 数据全部保存在本机目录
 - 支持自定义端口
 - 支持后续交互式修改端口和 `PUBLIC_BASE_URL`
-- 支持 `GitHub` 拉取后直接部署
-- 支持“纯 `image:`”方式部署
-- 支持群晖 `NAS` 项目式导入
+- 支持 `Ubuntu` 一键脚本部署
+- 支持群晖 `NAS` 纯 `image:` 部署
+- 支持通用 Docker / Compose 镜像部署
 
 ## 适用场景
 
@@ -67,7 +67,7 @@ wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bo
 curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
 ```
 
-### 方式 3：群晖 NAS 部署
+### 方式 3：群晖 NAS 镜像部署
 
 群晖请直接查看：
 
@@ -75,7 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/
 - `docker-compose.synology.yml`
 - `.env.synology.example`
 
-### 方式 4：纯 image 部署
+### 方式 4：Ubuntu / 通用 Docker 镜像部署
 
 如果你不想通过 GitHub 拉源码，而是希望像下面这样：
 

@@ -1,19 +1,6 @@
 services:
-  web-prep:
-    image: python:3.12-alpine
-    container_name: teachingopen-web-prep
-    restart: unless-stopped
-    volumes:
-      - ./assets/teaching-open-web-2.8.0.zip:/work/teaching-open-web-2.8.0.zip:ro
-      - ./runtime/web-root:/work/output
-      - ./scripts/prepare-web.py:/work/prepare-web.py:ro
-    command:
-      - sh
-      - -c
-      - python /work/prepare-web.py && tail -f /dev/null
-
   mysql:
-    image: mysql:5.7
+    image: ${MYSQL_IMAGE:-yourdockerhub/teachingopen-mysql:2.8.0}
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -24,9 +11,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - ./data/mysql:/var/lib/mysql
-      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
-      - ./docker/mysql/initdb:/docker-entrypoint-initdb.d:ro
-      - ./assets/teachingopen2.8.sql:/seed/teachingopen2.8.sql:ro
     healthcheck:
       test:
         - CMD-SHELL
@@ -63,7 +47,7 @@ services:
       - teachingopen
 
   app:
-    image: eclipse-temurin:8-jre
+    image: ${APP_IMAGE:-yourdockerhub/teachingopen-app:2.8.0}
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -71,7 +55,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    working_dir: /opt/teaching
     environment:
       TZ: ${TZ}
       JAVA_OPTS: ${JAVA_OPTS}
@@ -85,17 +68,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command:
-      - sh
-      - -c
-      - >
-        java $${JAVA_OPTS}
-        -jar /opt/teaching/app/teaching-open-2.8.0.jar
-        --spring.profiles.active=prod
-        --spring.config.additional-location=file:/opt/teaching/config/
     volumes:
-      - ./assets/teaching-open-2.8.0.jar:/opt/teaching/app/teaching-open-2.8.0.jar:ro
-      - ./config/application-prod.yml:/opt/teaching/config/application-prod.yml:ro
       - ./data/uploads:/data/uploads
       - ./data/webapp:/data/webapp
       - ./data/logs:/data/logs
@@ -114,27 +87,14 @@ services:
       - teachingopen
 
   nginx:
-    image: nginx:1.27-alpine
+    image: ${WEB_IMAGE:-yourdockerhub/teachingopen-web:2.8.0}
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
-      - web-prep
       - app
       - kkfileview
     ports:
       - ${WEB_PORT}:80
-    command:
-      - sh
-      - -c
-      - >
-        while [ ! -f /usr/share/nginx/html/index.html ]; do
-          echo "waiting for web assets";
-          sleep 2;
-        done;
-        nginx -g 'daemon off;'
-    volumes:
-      - ./runtime/web-root:/usr/share/nginx/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - teachingopen
 

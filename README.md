@@ -48,7 +48,7 @@
 
 ```bash
 cd /你的目录/TeachingOpen2.8-ubuntu-local-deploy
-chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh bootstrap-from-github.sh scripts/*.sh
+chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh configure-docker-mirror.sh bootstrap-from-github.sh scripts/*.sh
 sudo ./install.sh
 ```
 
@@ -143,6 +143,7 @@ Ubuntu 方案会启动以下服务：
 ├─ docker-compose.synology.yml 群晖项目式 Compose
 ├─ install.sh                  Ubuntu 首次部署脚本
 ├─ reconfigure.sh              修改端口 / PUBLIC_BASE_URL
+├─ configure-docker-mirror.sh  配置 Docker 镜像加速
 ├─ bootstrap-from-github.sh    GitHub 拉取并部署脚本
 └─ README-Synology.md          群晖部署说明
 ```
@@ -435,6 +436,55 @@ git lfs pull
 - 服务器上已拉下来的代码不会受影响
 - 后续再 `git pull` 时，需要给服务器配置 GitHub 认证
 - 匿名 `wget raw.githubusercontent.com/...` 将不再可用
+
+## Docker Hub 拉取失败怎么办
+
+如果你在 Ubuntu 上看到类似报错：
+
+```text
+failed to resolve reference "docker.io/library/nginx:1.27-alpine"
+read: connection reset by peer
+```
+
+这通常不是脚本卡住，而是：
+
+- 代码已经拉下来了
+- `.env` 已经生成了
+- 失败点出在 `docker compose pull`
+
+常见原因：
+
+- Docker Hub 网络不稳定
+- Docker daemon 没走代理
+- Docker daemon 没配镜像加速
+- IPv6 到 `registry-1.docker.io` 的连接被重置
+
+你可以先执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./configure-docker-mirror.sh
+```
+
+把你自己的 Docker 镜像加速地址填进去，脚本会自动：
+
+- 备份 `/etc/docker/daemon.json`
+- 写入 `registry-mirrors`
+- 重启 Docker
+
+然后重新执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./install.sh
+```
+
+如果只是想继续启动，也可以执行：
+
+```bash
+cd /opt/teachingopen-source
+./start.sh
+```
 
 ## 群晖 NAS 部署
 

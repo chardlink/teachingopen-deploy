@@ -233,7 +233,21 @@ prepare_directories() {
 start_stack() {
   (
     cd "$ROOT_DIR"
-    "${SUDO[@]}" docker compose pull
+    if ! "${SUDO[@]}" docker compose pull; then
+      echo
+      echo "镜像拉取失败，部署已中断。"
+      echo "常见原因："
+      echo "  1. Docker Hub 网络访问不稳定"
+      echo "  2. Docker daemon 没有配置镜像加速或代理"
+      echo "  3. IPv6 到 registry-1.docker.io 的连接被重置"
+      echo
+      echo "建议先执行："
+      echo "  cd $ROOT_DIR && sudo ./configure-docker-mirror.sh"
+      echo
+      echo "配置完成后，再重新执行："
+      echo "  cd $ROOT_DIR && sudo ./install.sh"
+      return 1
+    fi
     "${SUDO[@]}" docker compose up -d
   )
 }

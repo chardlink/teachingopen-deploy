@@ -100,7 +100,7 @@ fi
 echo "进入部署目录：$DEPLOY_DIR"
 cd "$DEPLOY_DIR"
 
-chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh bootstrap-from-github.sh scripts/*.sh
+chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh configure-docker-mirror.sh bootstrap-from-github.sh scripts/*.sh
 
 echo "开始执行一键部署..."
 "${SUDO[@]}" ./install.sh

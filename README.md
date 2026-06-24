@@ -466,10 +466,29 @@ cd /opt/teachingopen-source
 sudo ./configure-docker-mirror.sh
 ```
 
-把你自己的 Docker 镜像加速地址填进去，脚本会自动：
+这个脚本现在同时支持两种方式：
+
+- 配置 `registry-mirrors`
+- 配置 Docker daemon 代理
+
+如果你的 Ubuntu 本机本身就能通过代理访问外网，更推荐直接把 Docker daemon 也接入同一个代理，例如：
+
+```bash
+cd /opt/teachingopen-source
+sudo DOCKER_HTTP_PROXY="http://127.0.0.1:7890" DOCKER_HTTPS_PROXY="http://127.0.0.1:7890" DOCKER_NO_PROXY="localhost,127.0.0.1" ./configure-docker-mirror.sh
+```
+
+如果你已经有可用的 Docker 镜像加速地址，也可以直接一条命令写入：
+
+```bash
+cd /opt/teachingopen-source
+sudo REGISTRY_MIRRORS="https://你的镜像加速地址" ./configure-docker-mirror.sh
+```
+
+脚本会自动：
 
 - 备份 `/etc/docker/daemon.json`
-- 写入 `registry-mirrors`
+- 写入 `registry-mirrors` 和/或 `proxies`
 - 重启 Docker
 
 然后重新执行：

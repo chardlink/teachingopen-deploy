@@ -16,6 +16,14 @@ prompt_with_default() {
   printf '%s' "${reply:-$default}"
 }
 
+prompt_optional() {
+  local prompt="$1"
+  local reply
+
+  read -r -p "$prompt " reply
+  printf '%s' "$reply"
+}
+
 trim() {
   local value="$1"
   value="${value#"${value%%[![:space:]]*}"}"
@@ -27,21 +35,58 @@ main() {
   local daemon_dir="/etc/docker"
   local daemon_file="$daemon_dir/daemon.json"
   local backup_file=""
-  local mirrors_raw
+  local mirrors_raw="${REGISTRY_MIRRORS:-}"
+  local http_proxy_value="${DOCKER_HTTP_PROXY:-}"
+  local https_proxy_value="${DOCKER_HTTPS_PROXY:-}"
+  local no_proxy_value="${DOCKER_NO_PROXY:-}"
   local old_ifs
   local item
-  local first=1
+  local first
+  local has_mirrors=0
+  local has_proxy=0
 
-  echo "这个脚本用于给 Docker daemon 配置 registry mirror。"
-  echo "请粘贴一个或多个可用镜像加速地址，多个地址用英文逗号分隔。"
+  echo "这个脚本用于给 Docker daemon 配置镜像加速和代理。"
+  echo "支持两种方式："
+  echo "  1. 配置 registry-mirrors"
+  echo "  2. 配置 Docker daemon 的 HTTP/HTTPS 代理"
+  echo
+  echo "也支持环境变量直接执行，例如："
+  echo '  sudo REGISTRY_MIRRORS="https://你的加速地址" ./configure-docker-mirror.sh'
+  echo '  sudo DOCKER_HTTP_PROXY="http://127.0.0.1:7890" DOCKER_HTTPS_PROXY="http://127.0.0.1:7890" ./configure-docker-mirror.sh'
   echo
 
-  mirrors_raw="$(prompt_with_default "请输入 registry mirror 地址" "https://example-mirror-1,https://example-mirror-2")"
+  if [[ -z "$mirrors_raw" ]]; then
+    mirrors_raw="$(prompt_optional "请输入 registry mirror 地址，多个用英文逗号分隔；如果暂时不配镜像加速，直接回车跳过：")"
+  fi
 
-  if [[ "$mirrors_raw" == "https://example-mirror-1,https://example-mirror-2" ]]; then
+  if [[ -z "$http_proxy_value" ]]; then
+    http_proxy_value="$(prompt_optional "如需给 Docker daemon 配置 HTTP 代理，请输入地址；否则直接回车跳过：")"
+  fi
+
+  if [[ -z "$https_proxy_value" ]]; then
+    if [[ -n "$http_proxy_value" ]]; then
+      https_proxy_value="$(prompt_with_default "如需给 Docker daemon 配置 HTTPS 代理，请输入地址" "$http_proxy_value")"
+    else
+      https_proxy_value="$(prompt_optional "如需给 Docker daemon 配置 HTTPS 代理，请输入地址；否则直接回车跳过：")"
+    fi
+  fi
+
+  if [[ -z "$no_proxy_value" ]]; then
+    no_proxy_value="$(prompt_optional "如需设置 NO_PROXY，请输入逗号分隔地址；否则直接回车跳过：")"
+  fi
+
+  if [[ -n "$mirrors_raw" ]]; then
+    has_mirrors=1
+  fi
+
+  if [[ -n "$http_proxy_value" || -n "$https_proxy_value" || -n "$no_proxy_value" ]]; then
+    has_proxy=1
+  fi
+
+  if [[ $has_mirrors -eq 0 && $has_proxy -eq 0 ]]; then
     echo
-    echo "你还没有填写真实 mirror 地址。"
-    echo "请重新执行并填入你自己的 Docker 镜像加速地址。"
+    echo "你没有填写任何镜像加速或代理配置。"
+    echo "请重新执行并至少填写一项。"
     exit 1
   fi
 
@@ -55,21 +100,56 @@ main() {
 
   {
     echo "{"
-    echo '  "registry-mirrors": ['
-    old_ifs="$IFS"
-    IFS=','
-    for item in $mirrors_raw; do
-      item="$(trim "$item")"
-      [[ -z "$item" ]] && continue
+    first=1
+
+    if [[ $has_mirrors -eq 1 ]]; then
+      echo '  "registry-mirrors": ['
+      old_ifs="$IFS"
+      IFS=','
+      first=1
+      for item in $mirrors_raw; do
+        item="$(trim "$item")"
+        [[ -z "$item" ]] && continue
+        if [[ $first -eq 0 ]]; then
+          echo ","
+        fi
+        printf '    "%s"' "$item"
+        first=0
+      done
+      IFS="$old_ifs"
+      echo
+      echo -n "  ]"
+      first=0
+    fi
+
+    if [[ $has_proxy -eq 1 ]]; then
       if [[ $first -eq 0 ]]; then
         echo ","
       fi
-      printf '    "%s"' "$item"
-      first=0
-    done
-    IFS="$old_ifs"
-    echo
-    echo "  ]"
+      echo '  "proxies": {'
+      local proxy_first=1
+      if [[ -n "$http_proxy_value" ]]; then
+        printf '    "http-proxy": "%s"' "$http_proxy_value"
+        proxy_first=0
+      fi
+      if [[ -n "$https_proxy_value" ]]; then
+        if [[ $proxy_first -eq 0 ]]; then
+          echo ","
+        fi
+        printf '    "https-proxy": "%s"' "$https_proxy_value"
+        proxy_first=0
+      fi
+      if [[ -n "$no_proxy_value" ]]; then
+        if [[ $proxy_first -eq 0 ]]; then
+          echo ","
+        fi
+        printf '    "no-proxy": "%s"' "$no_proxy_value"
+      fi
+      echo
+      echo "  }"
+    else
+      echo
+    fi
     echo "}"
   } | "${SUDO[@]}" tee "$daemon_file" >/dev/null
 

@@ -196,6 +196,8 @@ services:
       - kkfileview
     ports:
       - "8080:80"
+    volumes:
+      - ./data/uploads:/data/uploads:ro
 ```
 
 ### 第 4 步：保存并启动
@@ -357,6 +359,13 @@ Ubuntu 方案会启动以下服务：
 - 删除容器不会直接丢数据
 - 迁移服务器时可以连同目录一起迁移
 - 备份时有明确的数据位置
+
+另外，Scratch 自定义素材库现在也走本地：
+
+- 普通上传文件、学生作品、课程封面，本来就保存在本地
+- 后台上传的 Scratch 自定义素材会保存到 `data/uploads/internalapi/asset`
+- Nginx 已经把 `/scratch3/static/internalapi/asset/*` 和 `/internalapi/asset/*` 映射到这个本地目录
+- 也就是说，这套部署下不再需要七牛云才能让自定义素材库显示出来
 
 ## 配置说明
 

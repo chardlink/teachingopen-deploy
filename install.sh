@@ -445,6 +445,7 @@ prepare_directories() {
     "$ROOT_DIR/data/mysql" \
     "$ROOT_DIR/data/redis" \
     "$ROOT_DIR/data/uploads" \
+    "$ROOT_DIR/data/uploads/internalapi/asset" \
     "$ROOT_DIR/data/webapp" \
     "$ROOT_DIR/data/logs" \
     "$ROOT_DIR/data/kkfileview" \

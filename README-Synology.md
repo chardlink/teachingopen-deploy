@@ -107,6 +107,8 @@ services:
       - kkfileview
     ports:
       - "8080:80"
+    volumes:
+      - ./data/uploads:/data/uploads:ro
 ```
 
 ## 第 4 步：保存并启动
@@ -121,6 +123,12 @@ services:
 - 三个密码
 
 然后直接点保存、启动即可。
+
+补充说明：
+
+- 普通上传文件、学生作品、课程封面，默认就是本地保存
+- 后台上传的 Scratch 自定义素材，现在也会从本地 `data/uploads/internalapi/asset` 读取
+- 这份 Compose 已经把 Nginx 和本地上传目录接好了，所以群晖部署也不需要七牛云
 
 ## 第 5 步：访问
 

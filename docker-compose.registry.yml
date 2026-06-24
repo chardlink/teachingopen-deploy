@@ -97,6 +97,8 @@ services:
       - kkfileview
     ports:
       - ${WEB_PORT}:80
+    volumes:
+      - ./data/uploads:/data/uploads:ro
     networks:
       - teachingopen
 

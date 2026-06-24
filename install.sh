@@ -61,11 +61,47 @@ apt_install() {
   retry 3 5 "${SUDO[@]}" apt-get install -y "$@"
 }
 
+apt_install_once() {
+  "${SUDO[@]}" apt-get install -y "$@"
+}
+
 curl_download() {
   local url="$1"
   local output_file="$2"
-
   retry 3 5 curl -4 -fsSL "$url" -o "$output_file"
+}
+
+apt_has_install_candidate() {
+  local package_name="$1"
+  local candidate
+
+  candidate="$("${SUDO[@]}" apt-cache policy "$package_name" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')"
+  [[ -n "$candidate" && "$candidate" != "(none)" ]]
+}
+
+ensure_universe_repository() {
+  local version_codename
+
+  if [[ ! -r /etc/os-release ]]; then
+    return 0
+  fi
+
+  # shellcheck disable=SC1091
+  source /etc/os-release
+  version_codename="${VERSION_CODENAME:-}"
+
+  if [[ -z "$version_codename" || "${ID:-}" != "ubuntu" ]]; then
+    return 0
+  fi
+
+  if grep -Rhs "^[^#].* ${version_codename} .*universe" /etc/apt/sources.list /etc/apt/sources.list.d/*.list >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "未检测到 Ubuntu universe 软件源，正在自动启用..."
+  apt_install software-properties-common
+  "${SUDO[@]}" add-apt-repository -y universe
+  apt_update
 }
 
 prompt_yes_no() {
@@ -223,11 +259,6 @@ docker_compose_cmd() {
   return 1
 }
 
-apt_has_package() {
-  local package_name="$1"
-  "${SUDO[@]}" apt-cache show "$package_name" >/dev/null 2>&1
-}
-
 cleanup_official_docker_repo() {
   "${SUDO[@]}" rm -f /etc/apt/sources.list.d/docker.list
   "${SUDO[@]}" rm -f /etc/apt/keyrings/docker.asc
@@ -237,7 +268,6 @@ install_docker_from_official_repo() {
   local arch version_codename temp_keyring
 
   if [[ ! -r /etc/os-release ]]; then
-    warn "无法读取 /etc/os-release，无法继续使用 Docker 官方源安装。"
     return 1
   fi
 
@@ -245,18 +275,16 @@ install_docker_from_official_repo() {
   source /etc/os-release
 
   if [[ "${ID:-}" != "ubuntu" ]]; then
-    warn "当前系统不是 Ubuntu，跳过 Docker 官方源安装。"
     return 1
   fi
 
   arch="$(dpkg --print-architecture)"
   version_codename="${VERSION_CODENAME:-}"
   if [[ -z "$version_codename" ]]; then
-    warn "无法识别 Ubuntu 版本代号，跳过 Docker 官方源安装。"
     return 1
   fi
 
-  log "正在尝试通过 Docker 官方源安装 Docker..."
+  log "Ubuntu 软件源安装 Docker 失败，正在尝试 Docker 官方源..."
   "${SUDO[@]}" install -m 0755 -d /etc/apt/keyrings
   temp_keyring="$(mktemp)"
   curl_download "https://download.docker.com/linux/ubuntu/gpg" "$temp_keyring"
@@ -267,28 +295,38 @@ install_docker_from_official_repo() {
     "$arch" "$version_codename" | "${SUDO[@]}" tee /etc/apt/sources.list.d/docker.list >/dev/null
 
   apt_update
-  apt_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  if ! apt_has_install_candidate docker-ce; then
+    return 1
+  fi
+
+  apt_install_once docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
 install_docker_from_ubuntu_repo() {
   local compose_package=""
 
-  log "正在回退到 Ubuntu 自带软件源安装 Docker..."
+  log "正在优先通过 Ubuntu 软件源安装 Docker..."
   cleanup_official_docker_repo
+  ensure_universe_repository
   apt_update
 
-  if apt_has_package docker-compose-v2; then
-    compose_package="docker-compose-v2"
-  elif apt_has_package docker-compose-plugin; then
-    compose_package="docker-compose-plugin"
-  elif apt_has_package docker-compose; then
+  if ! apt_has_install_candidate docker.io; then
+    return 1
+  fi
+
+  if apt_has_install_candidate docker-compose; then
     compose_package="docker-compose"
+  elif apt_has_install_candidate docker-compose-plugin; then
+    compose_package="docker-compose-plugin"
+  elif apt_has_install_candidate docker-compose-v2; then
+    compose_package="docker-compose-v2"
   fi
 
   if [[ -n "$compose_package" ]]; then
-    apt_install docker.io "$compose_package"
+    apt_install_once docker.io "$compose_package"
   else
-    apt_install docker.io
+    apt_install_once docker.io
   fi
 }
 
@@ -298,17 +336,18 @@ ensure_compose() {
   fi
 
   log "Docker Compose 尚未就绪，开始补装..."
+  ensure_universe_repository
   apt_update
 
-  if apt_has_package docker-compose-v2 && apt_install docker-compose-v2; then
+  if apt_has_install_candidate docker-compose && apt_install_once docker-compose; then
     return 0
   fi
 
-  if apt_has_package docker-compose-plugin && apt_install docker-compose-plugin; then
+  if apt_has_install_candidate docker-compose-plugin && apt_install_once docker-compose-plugin; then
     return 0
   fi
 
-  if apt_has_package docker-compose && apt_install docker-compose; then
+  if apt_has_install_candidate docker-compose-v2 && apt_install_once docker-compose-v2; then
     return 0
   fi
 
@@ -322,13 +361,14 @@ ensure_base_packages() {
 
 ensure_docker() {
   if ! need_cmd docker; then
-    if install_docker_from_official_repo; then
+    if install_docker_from_ubuntu_repo; then
+      log "Docker 已通过 Ubuntu 软件源安装完成。"
+    elif install_docker_from_official_repo; then
       log "Docker 已通过官方源安装完成。"
     else
-      warn "Docker 官方源安装失败，常见原因是 download.docker.com 当前网络不通或被重置。"
-      warn "脚本现在会自动回退到 Ubuntu 自带软件源继续安装。"
-      install_docker_from_ubuntu_repo
-      log "Docker 已通过 Ubuntu 软件源安装完成。"
+      warn "Ubuntu 软件源和 Docker 官方源都没有安装成功。"
+      warn "请先检查 Ubuntu 软件源、universe 仓库以及 download.docker.com 的连通性。"
+      exit 1
     fi
   else
     log "已检测到现有 Docker，跳过安装。"
@@ -338,7 +378,7 @@ ensure_docker() {
 
   if ! ensure_compose; then
     warn "Docker 已安装，但 Docker Compose 仍不可用。"
-    warn "请检查当前 Ubuntu 软件源是否可正常安装 docker-compose 相关软件包。"
+    warn "请检查当前 Ubuntu 软件源是否可正常提供 docker-compose 相关软件包。"
     exit 1
   fi
 
@@ -445,6 +485,10 @@ main() {
   prepare_directories
 
   echo
+  echo "当前 Ubuntu 模式是 Docker 容器化部署，不是宿主机原生安装。"
+  echo "这样做的目的是尽量不碰你宿主机现有的 MySQL、Redis 和 HUSTOJ 数据目录。"
+  echo
+
   if ! prompt_yes_no "配置已准备完成，是否现在开始部署并启动容器？" Y; then
     echo "已取消本次启动。"
     echo "你可以先修改 $ROOT_DIR/.env，之后再手动执行 ./start.sh。"

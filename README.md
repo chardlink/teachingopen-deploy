@@ -15,6 +15,13 @@
 wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
 ```
 
+说明：
+
+- 当前 Ubuntu 模式是 Docker 容器化一键部署
+- 不是宿主机原生直装
+- 这样做是为了尽量不碰你宿主机现有的 MySQL、Redis 和 HUSTOJ 数据目录
+- 群晖模式和 Ubuntu 模式在这个思路上是一致的，都是容器化
+
 如果第一次安装中途失败，不需要删除整个目录，也不需要删除 `data/`。
 可以直接重新执行同一条命令；如果仓库已经拉下来，也可以执行：
 
@@ -37,13 +44,13 @@ sudo ./update.sh
 - 安装 `git`
 - 安装 `git-lfs`
 - 下载仓库
-- 安装 `Docker`（优先官方源，失败自动回退到 Ubuntu 软件源）
+- 安装 `Docker`（优先 Ubuntu 软件源，失败再尝试官方源）
 - 创建 `.env`
 - 提示你填写端口和 `PUBLIC_BASE_URL`
 - 自动启动全部容器
 
 如果你的网络访问 `download.docker.com` 不稳定，不需要手动清理再重来。
-现在脚本会先尝试官方安装方式，失败后自动改走 Ubuntu 自带软件源继续安装。
+现在脚本会先尝试 Ubuntu 自带软件源安装 Docker；只有 Ubuntu 源不满足时，才会再尝试 Docker 官方源。
 
 如果后续要改端口或外网入口，执行：
 
@@ -250,7 +257,7 @@ IMAGE_NAMESPACE=chardchao IMAGE_TAG=2.8.0 ./docker-push-images.sh
 
 - 安装基础依赖 `ca-certificates`、`curl`、`unzip`
 - 安装 `Docker`
-- 安装 `docker compose plugin`
+- 安装 `docker compose` 或 `docker-compose`
 - 创建或读取 `.env`
 - 显示默认端口和访问地址
 - 询问你是否修改端口和 `PUBLIC_BASE_URL`

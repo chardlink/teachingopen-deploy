@@ -14,12 +14,12 @@ spring:
     password: ${REDIS_PASSWORD:}
 
 justauth:
-  enabled: false
+  enabled: true
   type:
     GITHUB:
       client-id: placeholder
       client-secret: placeholder
-      redirect-uri: placeholder
+      redirect-uri: ${TEACHING_DOMAIN:http://127.0.0.1:8080}/callback
 
 ueip: false
 

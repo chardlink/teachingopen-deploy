@@ -118,12 +118,12 @@ teachingopen
 
 ### 第 3 步：直接复制下面这段内容
 
-把下面整段内容直接粘贴进去，然后只改你自己的镜像地址、群晖 IP 和端口即可：
+把下面整段内容直接粘贴进去，然后只改你自己的群晖 IP、端口和密码即可。这里默认已经改成国内更容易拉取的镜像入口：
 
 ```yaml
 services:
   mysql:
-    image: chardchao/teachingopen-mysql:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -136,7 +136,7 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   redis:
-    image: redis:6.2-alpine
+    image: m.daocloud.io/docker.io/library/redis:6.2-alpine
     container_name: teachingopen-redis
     restart: unless-stopped
     command: >
@@ -148,7 +148,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: chardchao/teachingopen-app:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -173,7 +173,7 @@ services:
       - ./data/logs:/data/logs
 
   kkfileview:
-    image: keking/kkfileview:latest
+    image: m.daocloud.io/docker.io/keking/kkfileview:latest
     container_name: teachingopen-kkfileview
     restart: unless-stopped
     environment:
@@ -182,7 +182,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: chardchao/teachingopen-web:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -196,9 +196,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `chardchao/teachingopen-mysql:2.8.0`
-- `chardchao/teachingopen-app:2.8.0`
-- `chardchao/teachingopen-web:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码
@@ -284,11 +284,11 @@ IMAGE_NAMESPACE=chardchao IMAGE_TAG=2.8.0 ./docker-push-images.sh
 
 Ubuntu 方案会启动以下服务：
 
-- `mysql:5.7`
-- `redis:6.2-alpine`
-- `eclipse-temurin:8-jre`
-- `nginx:1.27-alpine`
-- `keking/kkfileview:latest`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
+- `m.daocloud.io/docker.io/library/redis:6.2-alpine`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
+- `m.daocloud.io/docker.io/keking/kkfileview:latest`
 
 群晖方案在此基础上额外包含：
 

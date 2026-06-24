@@ -35,12 +35,12 @@ teachingopen
 
 ## 第 3 步：直接粘贴下面这段
 
-把下面整段内容直接粘贴进去，然后改你自己的镜像地址、群晖 IP、端口和密码：
+把下面整段内容直接粘贴进去，然后改你自己的群晖 IP、端口和密码。这里默认已经改成国内更容易拉取的镜像入口：
 
 ```yaml
 services:
   mysql:
-    image: chardchao/teachingopen-mysql:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -53,7 +53,7 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   redis:
-    image: redis:6.2-alpine
+    image: m.daocloud.io/docker.io/library/redis:6.2-alpine
     container_name: teachingopen-redis
     restart: unless-stopped
     command: >
@@ -65,7 +65,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: chardchao/teachingopen-app:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -90,7 +90,7 @@ services:
       - ./data/logs:/data/logs
 
   kkfileview:
-    image: keking/kkfileview:latest
+    image: m.daocloud.io/docker.io/keking/kkfileview:latest
     container_name: teachingopen-kkfileview
     restart: unless-stopped
     environment:
@@ -99,7 +99,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: chardchao/teachingopen-web:2.8.0
+    image: m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -113,9 +113,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `chardchao/teachingopen-mysql:2.8.0`
-- `chardchao/teachingopen-app:2.8.0`
-- `chardchao/teachingopen-web:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
+- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码

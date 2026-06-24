@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    dynamic:
+      datasource:
+        master:
+          url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME:teachingopen}?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&serverTimezone=Asia/Shanghai
+          username: ${DB_USER:teachingopen}
+          password: ${DB_PASS:teachingopen}
+          driver-class-name: com.mysql.jdbc.Driver
+  redis:
+    database: 1
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+
+justauth:
+  enabled: false
+
+ueip: false
+
+jeecg:
+  domain: ${TEACHING_DOMAIN:http://127.0.0.1:8080}
+  uploadType: local
+  path:
+    upload: /data/uploads
+    webapp: /data/webapp
+    staticDomain: /api/sys/common/static
+  filePreview: kkfileview
+  file-view-domain: ${FILE_VIEW_DOMAIN:http://127.0.0.1:8080/preview}
+
+logging:
+  file:
+    path: /data/logs

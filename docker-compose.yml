@@ -1,0 +1,122 @@
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: teachingopen-mysql
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./docker/mysql/conf.d:/etc/mysql/conf.d:ro
+      - ./docker/mysql/initdb:/docker-entrypoint-initdb.d:ro
+      - ./assets/teachingopen2.8.sql:/seed/teachingopen2.8.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - teachingopen
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: teachingopen-redis
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}" --save 60 1
+    environment:
+      TZ: ${TZ}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - teachingopen
+
+  app:
+    image: eclipse-temurin:8-jre
+    container_name: teachingopen-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    working_dir: /opt/teaching
+    environment:
+      TZ: ${TZ}
+      JAVA_OPTS: ${JAVA_OPTS}
+      TEACHING_DOMAIN: ${PUBLIC_BASE_URL}
+      FILE_VIEW_DOMAIN: ${PUBLIC_BASE_URL}/preview
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASS: ${MYSQL_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - >
+        java $${JAVA_OPTS}
+        -jar /opt/teaching/app/teaching-open-2.8.0.jar
+        --spring.profiles.active=prod
+        --spring.config.additional-location=file:/opt/teaching/config/
+    volumes:
+      - ./assets/teaching-open-2.8.0.jar:/opt/teaching/app/teaching-open-2.8.0.jar:ro
+      - ./config/application-prod.yml:/opt/teaching/config/application-prod.yml:ro
+      - ./data/uploads:/data/uploads
+      - ./data/webapp:/data/webapp
+      - ./data/logs:/data/logs
+    ports:
+      - 127.0.0.1:${APP_DEBUG_PORT}:8080
+    networks:
+      - teachingopen
+
+  kkfileview:
+    image: keking/kkfileview:latest
+    container_name: teachingopen-kkfileview
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - ./data/kkfileview:/opt/kkFileView
+    networks:
+      - teachingopen
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: teachingopen-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+      - kkfileview
+    ports:
+      - ${WEB_PORT}:80
+    volumes:
+      - ./runtime/web-root:/usr/share/nginx/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - teachingopen
+
+networks:
+  teachingopen:
+    driver: bridge

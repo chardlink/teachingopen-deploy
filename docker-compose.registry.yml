@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: ${MYSQL_IMAGE:-m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0}
+    image: ${MYSQL_IMAGE:-docker.io/chardchao/teachingopen-mysql:2.8.0}
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -47,7 +47,7 @@ services:
       - teachingopen
 
   app:
-    image: ${APP_IMAGE:-m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0}
+    image: ${APP_IMAGE:-docker.io/chardchao/teachingopen-app:2.8.0}
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -89,7 +89,7 @@ services:
       - teachingopen
 
   nginx:
-    image: ${WEB_IMAGE:-m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0}
+    image: ${WEB_IMAGE:-docker.io/chardchao/teachingopen-web:2.8.0}
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:

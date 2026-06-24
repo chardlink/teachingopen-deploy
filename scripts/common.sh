@@ -46,6 +46,11 @@ docker_compose() {
 docker_pull_failure_needs_ipv4_retry() {
   local log_file="$1"
 
+  # 403 Forbidden 是镜像加速站权限问题，不是网络问题，不应触发 IPv4 重试
+  if grep -Eiq '403 Forbidden' "$log_file"; then
+    return 1
+  fi
+
   grep -Eiq \
     'registry-1\.docker\.io|docker\.io/|connection reset by peer|failed to resolve reference|TLS handshake timeout|i/o timeout|read tcp .*2600:' \
     "$log_file"

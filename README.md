@@ -89,7 +89,7 @@ teachingopen
 ```yaml
 services:
   mysql:
-    image: yourdockerhub/teachingopen-mysql:2.8.0
+    image: chardlink/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -114,7 +114,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: yourdockerhub/teachingopen-app:2.8.0
+    image: chardlink/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -148,7 +148,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: yourdockerhub/teachingopen-web:2.8.0
+    image: chardlink/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -162,9 +162,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `yourdockerhub/teachingopen-mysql:2.8.0`
-- `yourdockerhub/teachingopen-app:2.8.0`
-- `yourdockerhub/teachingopen-web:2.8.0`
+- `chardlink/teachingopen-mysql:2.8.0`
+- `chardlink/teachingopen-app:2.8.0`
+- `chardlink/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码
@@ -214,14 +214,14 @@ http://群晖IP:8080
 本地构建：
 
 ```bash
-IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-build-images.sh
+IMAGE_NAMESPACE=chardlink IMAGE_TAG=2.8.0 ./docker-build-images.sh
 ```
 
 登录并推送：
 
 ```bash
 docker login
-IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-push-images.sh
+IMAGE_NAMESPACE=chardlink IMAGE_TAG=2.8.0 ./docker-push-images.sh
 ```
 
 ## Ubuntu 部署会做什么

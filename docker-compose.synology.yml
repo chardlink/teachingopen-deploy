@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: ${MYSQL_IMAGE:-yourdockerhub/teachingopen-mysql:2.8.0}
+    image: ${MYSQL_IMAGE:-chardlink/teachingopen-mysql:2.8.0}
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -47,7 +47,7 @@ services:
       - teachingopen
 
   app:
-    image: ${APP_IMAGE:-yourdockerhub/teachingopen-app:2.8.0}
+    image: ${APP_IMAGE:-chardlink/teachingopen-app:2.8.0}
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -87,7 +87,7 @@ services:
       - teachingopen
 
   nginx:
-    image: ${WEB_IMAGE:-yourdockerhub/teachingopen-web:2.8.0}
+    image: ${WEB_IMAGE:-chardlink/teachingopen-web:2.8.0}
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:

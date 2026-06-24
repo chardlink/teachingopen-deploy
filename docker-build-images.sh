@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-yourdockerhub}"
+IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-chardlink}"
 IMAGE_TAG="${IMAGE_TAG:-2.8.0}"
 
 cd "$ROOT_DIR"

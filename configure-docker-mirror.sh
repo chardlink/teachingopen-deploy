@@ -90,6 +90,17 @@ apply_prefer_ipv4() {
       echo "  警告：无法解析 $rhost 的 IPv4 地址，跳过。"
     fi
   done
+
+  # 通过 sysctl 在系统内核层禁用 IPv6，让 Docker daemon 完全无法建立 IPv6 连接。
+  local sysctl_file="/etc/sysctl.d/99-disable-ipv6.conf"
+  if [[ ! -f "$sysctl_file" ]] || ! grep -q 'disable_ipv6' "$sysctl_file" 2>/dev/null; then
+    printf 'net.ipv6.conf.all.disable_ipv6 = 1\nnet.ipv6.conf.default.disable_ipv6 = 1\nnet.ipv6.conf.lo.disable_ipv6 = 1\n' \
+      | "${SUDO[@]}" tee "$sysctl_file" > /dev/null
+    "${SUDO[@]}" sysctl -p "$sysctl_file" > /dev/null 2>&1 || true
+    echo "已通过 sysctl 禁用系统 IPv6（$sysctl_file）"
+  else
+    echo "已检测到系统 IPv6 禁用规则（$sysctl_file），跳过。"
+  fi
 }
 
 main() {
@@ -170,76 +181,78 @@ main() {
     exit 1
   fi
 
-  if [[ $has_mirrors -eq 1 || $has_proxy -eq 1 ]]; then
-    "${SUDO[@]}" mkdir -p "$daemon_dir"
+  # 无论是否配置 mirrors/proxy，只要执行本脚本就写入 daemon.json（禁用 IPv6）
+  "${SUDO[@]}" mkdir -p "$daemon_dir"
 
-    if [[ -f "$daemon_file" ]]; then
-      backup_file="${daemon_file}.bak.$(date +%Y%m%d-%H%M%S)"
-      "${SUDO[@]}" cp "$daemon_file" "$backup_file"
-      echo "已备份现有 Docker 配置到：$backup_file"
-    fi
+  if [[ -f "$daemon_file" ]]; then
+    backup_file="${daemon_file}.bak.$(date +%Y%m%d-%H%M%S)"
+    "${SUDO[@]}" cp "$daemon_file" "$backup_file"
+    echo "已备份现有 Docker 配置到：$backup_file"
+  fi
 
-    {
-      echo "{"
+  {
+    echo "{"
+    first=1
+
+    if [[ $has_mirrors -eq 1 ]]; then
+      echo '  "registry-mirrors": ['
+      old_ifs="$IFS"
+      IFS=','
       first=1
-
-      if [[ $has_mirrors -eq 1 ]]; then
-        echo '  "registry-mirrors": ['
-        old_ifs="$IFS"
-        IFS=','
-        first=1
-        for item in $mirrors_raw; do
-          item="$(trim "$item")"
-          [[ -z "$item" ]] && continue
-          if [[ $first -eq 0 ]]; then
-            echo ","
-          fi
-          printf '    "%s"' "$item"
-          first=0
-        done
-        IFS="$old_ifs"
-        echo
-        echo -n "  ]"
-        first=0
-      fi
-
-      if [[ $has_proxy -eq 1 ]]; then
+      for item in $mirrors_raw; do
+        item="$(trim "$item")"
+        [[ -z "$item" ]] && continue
         if [[ $first -eq 0 ]]; then
           echo ","
         fi
-        echo '  "proxies": {'
-        proxy_first=1
-        if [[ -n "$http_proxy_value" ]]; then
-          printf '    "http-proxy": "%s"' "$http_proxy_value"
-          proxy_first=0
-        fi
-        if [[ -n "$https_proxy_value" ]]; then
-          if [[ $proxy_first -eq 0 ]]; then
-            echo ","
-          fi
-          printf '    "https-proxy": "%s"' "$https_proxy_value"
-          proxy_first=0
-        fi
-        if [[ -n "$no_proxy_value" ]]; then
-          if [[ $proxy_first -eq 0 ]]; then
-            echo ","
-          fi
-          printf '    "no-proxy": "%s"' "$no_proxy_value"
-        fi
-        echo
-        echo "  }"
-      else
-        echo
-      fi
-      echo "}"
-    } | "${SUDO[@]}" tee "$daemon_file" >/dev/null
+        printf '    "%s"' "$item"
+        first=0
+      done
+      IFS="$old_ifs"
+      echo
+      echo -n "  ]"
+      first=0
+    fi
 
+    if [[ $has_proxy -eq 1 ]]; then
+      if [[ $first -eq 0 ]]; then
+        echo ","
+      fi
+      echo '  "proxies": {'
+      proxy_first=1
+      if [[ -n "$http_proxy_value" ]]; then
+        printf '    "http-proxy": "%s"' "$http_proxy_value"
+        proxy_first=0
+      fi
+      if [[ -n "$https_proxy_value" ]]; then
+        if [[ $proxy_first -eq 0 ]]; then
+          echo ","
+        fi
+        printf '    "https-proxy": "%s"' "$https_proxy_value"
+        proxy_first=0
+      fi
+      if [[ -n "$no_proxy_value" ]]; then
+        if [[ $proxy_first -eq 0 ]]; then
+          echo ","
+        fi
+        printf '    "no-proxy": "%s"' "$no_proxy_value"
+      fi
+      echo
+      echo -n "  }"
+      first=0
+    fi
+
+    # 始终禁用 Docker 容器 IPv6 网络
+    if [[ $first -eq 0 ]]; then
+      echo ","
+    fi
+    printf '  "ipv6": false'
     echo
-    echo "已写入 $daemon_file"
-  else
-    echo
-    echo "本次只启用 IPv4 优先，不改动现有 $daemon_file。"
-  fi
+    echo "}"
+  } | "${SUDO[@]}" tee "$daemon_file" > /dev/null
+
+  echo
+  echo "已写入 $daemon_file（含 \"ipv6\": false）"
 
   if [[ $use_ipv4_preference -eq 1 ]]; then
     apply_prefer_ipv4

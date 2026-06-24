@@ -1,97 +1,239 @@
-# TeachingOpen 2.8 Ubuntu / 群晖 本地部署说明
+# TeachingOpen 2.8 自托管部署包
 
-这个目录是一套独立的 `TeachingOpen 2.8` 自部署包，目标是：
+> 一个面向 `TeachingOpen 2.8` 的独立部署仓库，目标是不用宝塔，直接在 `Ubuntu` 或群晖 `NAS` 上完成本地化、自托管部署。
 
-- 不依赖宝塔
-- 支持 Ubuntu 本地一键部署
-- 支持群晖 `Container Manager` 项目式部署
-- 数据全部保存在你自己的机器上
-- 前端、后端、数据库、Redis 都本地化运行
+## 这是什么
 
-## 适用范围
+这个仓库**不是 `TeachingOpen 2.8` 的官方源码仓库**，而是一套已经整理好的自托管部署包。
 
-当前这套部署包适用于：
+它主要解决这些问题：
 
-- Ubuntu 服务器
-- 本地局域网环境
-- 动态公网 IP + 路由器端口映射
-- 群晖 NAS 容器部署
+- 不想依赖宝塔
+- 想直接在 `Ubuntu` 上一键部署
+- 想把数据保存在自己机器上
+- 想在局域网、本地服务器、群晖 `NAS` 上长期运行
+- 想兼容动态公网 `IP`、端口映射、内外网同时访问
 
-## 这套部署包做了什么
+仓库内已经包含：
 
-- 使用 Docker Compose 部署 `MySQL + Redis + Java + Nginx + kkFileView`
-- 文件上传改为本地存储，不依赖七牛云
-- 前端自动解压并修补
-- 去掉默认外部 `errlog.js`
-- 文件预览改为本地容器代理
-- 首次启动时自动导入并清洗官方 SQL
-- 兼容 Linux 表名大小写问题
+- 官方后端 `jar`
+- 官方前端 `zip`
+- 初始化 `SQL`
+- `Docker Compose` 部署文件
+- `Ubuntu` 一键部署脚本
+- 群晖 `Container Manager` 部署文件
 
-## 不能改成什么
+## 项目特点
 
-当前 `TeachingOpen 2.8` 是已经编译好的 Java 程序，后端本身硬依赖：
+- 不依赖宝塔面板
+- 使用 `Docker Compose` 统一部署
+- 文件上传走本地存储
+- 数据全部保存在本机目录
+- 支持自定义端口
+- 支持后续交互式修改端口和 `PUBLIC_BASE_URL`
+- 支持 `GitHub` 拉取后直接部署
+- 支持群晖 `NAS` 项目式导入
 
-- MySQL
-- Redis
+## 适用场景
 
-所以它不能直接切换成纯 YAML / 纯 JSON 持久化，除非重写后端。
+- Ubuntu 服务器本地部署
+- 局域网环境使用
+- 动态公网 `IP` + 路由器端口映射
+- 群晖 `NAS` 容器部署
+- 与宿主机其它服务并存，例如 `HUSTOJ`
 
-## 目录结构
+## 快速开始
 
-- `assets/`
-  - 原始 `jar`、前端 `zip`、数据库 `sql`
-- `config/`
-  - 后端挂载配置
-- `docker/`
-  - Nginx / MySQL 配置
-- `scripts/`
-  - 辅助脚本
-- `data/`
-  - 持久化数据目录
-- `runtime/web-root/`
-  - 自动解压后的前端静态文件
-
-## Ubuntu 一键部署
-
-1. 把整个目录复制到 Ubuntu。
-2. 进入该目录。
-3. 执行：
+### 方式 1：Ubuntu 本地目录直接部署
 
 ```bash
+cd /你的目录/TeachingOpen2.8-ubuntu-local-deploy
 chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh bootstrap-from-github.sh scripts/*.sh
 sudo ./install.sh
 ```
 
-安装脚本会自动：
+### 方式 2：从 GitHub 一键拉取并部署
 
-- 安装 Docker（如果未安装）
-- 生成 `.env`（如果不存在）
+仓库保持公开时，可以直接执行：
+
+```bash
+wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
+```
+
+或者：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
+```
+
+### 方式 3：群晖 NAS 部署
+
+群晖请直接查看：
+
+- `README-Synology.md`
+- `docker-compose.synology.yml`
+- `.env.synology.example`
+
+## Ubuntu 部署会做什么
+
+`install.sh` 会自动完成这些事情：
+
+- 安装基础依赖 `ca-certificates`、`curl`、`unzip`
+- 安装 `Docker`
+- 安装 `docker compose plugin`
+- 创建或读取 `.env`
 - 显示默认端口和访问地址
-- 询问你是否使用默认值或改成自定义值
-- 询问你是否要手动打开 `.env` 再修改一次
+- 询问你是否修改端口和 `PUBLIC_BASE_URL`
 - 自动解压并修补前端静态包
-- 启动全部容器
+- 拉取镜像并启动容器
 
-## 部署时会提示你填写什么
+`bootstrap-from-github.sh` 额外会自动完成：
 
-首次部署时，脚本会先显示默认值：
+- 安装 `git`
+- 安装 `git-lfs`
+- 仓库不存在时执行 `clone`
+- 仓库已存在时执行 `fetch + pull`
+- 自动拉取 `Git LFS` 大文件
+- 自动进入部署目录并执行 `install.sh`
+
+## 部署架构
+
+Ubuntu 方案会启动以下服务：
+
+- `mysql:5.7`
+- `redis:6.2-alpine`
+- `eclipse-temurin:8-jre`
+- `nginx:1.27-alpine`
+- `keking/kkfileview:latest`
+
+群晖方案在此基础上额外包含：
+
+- `web-prep`
+
+`web-prep` 用于自动解压并修补前端静态包，避免你在群晖里手动处理前端文件。
+
+## 为什么不是 JSON / YAML 存储
+
+当前 `TeachingOpen 2.8` 是已经编译好的 Java 程序，后端本身硬依赖：
+
+- `MySQL`
+- `Redis`
+
+所以它不能直接改成纯 `JSON` 或纯 `YAML` 持久化，除非重写后端逻辑。
+
+但如果你的目标是“数据不要放第三方服务、只放在自己机器上”，这套方案已经满足，因为：
+
+- 数据库在你自己的 `MySQL` 容器里
+- 缓存在你自己的 `Redis` 容器里
+- 上传文件在你自己的本地目录里
+
+## 仓库结构
+
+```text
+.
+├─ assets/                     官方 jar、前端 zip、SQL
+├─ config/                     后端挂载配置
+├─ docker/                     Nginx / MySQL 配置
+├─ scripts/                    辅助脚本
+├─ data/                       持久化数据目录
+├─ runtime/web-root/           解压后的前端静态文件
+├─ .env.example                Ubuntu 环境变量示例
+├─ .env.synology.example       群晖环境变量示例
+├─ docker-compose.yml          Ubuntu / 通用 Compose
+├─ docker-compose.synology.yml 群晖项目式 Compose
+├─ install.sh                  Ubuntu 首次部署脚本
+├─ reconfigure.sh              修改端口 / PUBLIC_BASE_URL
+├─ bootstrap-from-github.sh    GitHub 拉取并部署脚本
+└─ README-Synology.md          群晖部署说明
+```
+
+## 数据保存位置
+
+重要数据默认保存在本地 `data/` 目录：
+
+- `data/mysql`
+- `data/redis`
+- `data/uploads`
+- `data/webapp`
+- `data/logs`
+- `data/kkfileview`
+
+这意味着：
+
+- 删除容器不会直接丢数据
+- 迁移服务器时可以连同目录一起迁移
+- 备份时有明确的数据位置
+
+## 配置说明
+
+首次部署时，`.env` 会自动生成。你也可以参考：
+
+- `.env.example`
+- `.env.synology.example`
+
+常用字段如下：
+
+| 变量 | 作用 |
+| --- | --- |
+| `WEB_PORT` | Nginx 对外监听端口 |
+| `APP_DEBUG_PORT` | 后端调试端口，仅绑定到 `127.0.0.1` |
+| `PUBLIC_BASE_URL` | 系统默认对外地址，不是监听地址 |
+| `MYSQL_ROOT_PASSWORD` | MySQL root 密码 |
+| `MYSQL_DATABASE` | TeachingOpen 使用的数据库名 |
+| `MYSQL_USER` | TeachingOpen 使用的数据库用户 |
+| `MYSQL_PASSWORD` | TeachingOpen 使用的数据库密码 |
+| `REDIS_PASSWORD` | Redis 密码 |
+| `JAVA_OPTS` | Java 内存参数 |
+
+默认示例：
+
+```env
+TZ=Asia/Shanghai
+WEB_PORT=8080
+APP_DEBUG_PORT=18080
+PUBLIC_BASE_URL=http://127.0.0.1:8080
+MYSQL_ROOT_PASSWORD=change-this-root-password
+MYSQL_DATABASE=teachingopen
+MYSQL_USER=teachingopen
+MYSQL_PASSWORD=change-this-app-password
+REDIS_PASSWORD=change-this-redis-password
+JAVA_OPTS="-Xms512m -Xmx2048m -Dfile.encoding=UTF-8"
+```
+
+## 首次部署时会提示什么
+
+首次执行 `install.sh` 时，脚本会显示默认值：
 
 - `WEB_PORT=8080`
 - `APP_DEBUG_PORT=18080`
 - `PUBLIC_BASE_URL=http://服务器IP:8080`
 
-然后你可以选择：
+然后你可以：
 
 - 直接使用默认值
-- 逐项输入新的端口和地址
-- 先生成 `.env`，再手动打开 `.env` 修改后继续部署
+- 改成自己的端口和访问地址
+- 先生成 `.env`，再手动修改后继续
 
-如果目录里已经存在 `.env`，脚本会先显示当前配置，并询问你是否先手动修改。
+如果目录里已经有 `.env`，脚本会先显示当前配置，并询问你是否先手动修改。
 
-## 默认访问方式
+## 访问方式
 
-- 前端入口：`http://服务器IP:WEB_PORT`
-- 后端本机调试入口：`http://127.0.0.1:APP_DEBUG_PORT/api/`
+前端入口：
+
+```text
+http://服务器IP:WEB_PORT
+```
+
+后端调试入口：
+
+```text
+http://127.0.0.1:APP_DEBUG_PORT
+```
+
+例如默认配置下：
+
+- 前端：`http://192.168.1.50:8080`
+- 后端调试：`http://127.0.0.1:18080`
 
 默认测试账号：
 
@@ -117,17 +259,19 @@ sudo ./install.sh
 ./stop.sh
 ```
 
+查看状态：
+
+```bash
+./status.sh
+```
+
 查看日志：
 
 ```bash
 ./logs.sh
 ./logs.sh app
-```
-
-查看状态：
-
-```bash
-./status.sh
+./logs.sh mysql
+./logs.sh nginx
 ```
 
 备份：
@@ -136,361 +280,205 @@ sudo ./install.sh
 ./backup.sh
 ```
 
-## 后续修改端口和外网入口
+`backup.sh` 会生成：
 
-不需要重新安装。
+- MySQL 导出文件
+- `uploads` 打包文件
+- 当前 `.env`
 
-后续如果你想改：
+备份目录示例：
+
+```text
+backups/20260624-120000/
+```
+
+## 后续修改端口或外网入口
+
+不需要重新部署。
+
+如果你后续想修改：
 
 - 本机服务端口 `WEB_PORT`
 - 本机调试端口 `APP_DEBUG_PORT`
-- 外网入口 `PUBLIC_BASE_URL`
+- 默认对外地址 `PUBLIC_BASE_URL`
 
-直接执行：
+执行：
 
 ```bash
 ./reconfigure.sh
 ```
 
-这个脚本会自动：
+这个脚本会：
 
-- 显示当前 `WEB_PORT`
-- 显示当前 `APP_DEBUG_PORT`
-- 显示当前 `PUBLIC_BASE_URL`
-- 提示你输入新的本机端口
-- 提示你输入新的外网入口协议、主机和端口
+- 显示当前配置
+- 询问新的本机端口
+- 询问新的外网协议、主机和端口
 - 自动写回 `.env`
-- 自动执行一次 `stop` 再 `start`
+- 自动执行一次 `stop` 和 `start`
 
-## PUBLIC_BASE_URL 是做什么的
+## 网络访问说明
 
-`PUBLIC_BASE_URL` 不是监听地址，而是系统“默认对外使用的地址”。
+`PUBLIC_BASE_URL` 不是容器监听地址，它表示系统默认认为的“对外入口地址”。
 
-它主要影响：
-
-- 后端默认站点地址
-- 文件预览服务地址
-- 少数绝对链接、分享链接、跳转地址
-
-它不是必须和实际监听端口完全相同，但它最好代表你希望系统默认对外暴露的入口。
-
-### 推荐理解方式
+可以这样理解：
 
 - `WEB_PORT`
-  - 服务器本机真正监听的端口
+  - 服务器真正监听的端口
 - `PUBLIC_BASE_URL`
-  - 浏览器和系统默认认为的对外访问入口
+  - 系统生成链接、文件预览、部分跳转时默认使用的地址
 
-## 内网访问和外网访问能否同时存在
+### 内外网同时访问
 
-可以。
+完全可行。
 
 例如：
 
 - 服务器内网 IP：`192.168.1.50`
 - 本机监听端口：`8080`
-- 路由器外网映射端口：`28080`
+- 路由器外网映射：`28080 -> 8080`
 
 那么：
 
 - 内网访问：`http://192.168.1.50:8080`
 - 外网访问：`http://公网IP:28080`
 
-两者可以同时存在。
+### 内外网端口不一致
 
-## 内外网端口不一致是否可行
-
-完全可行。
+完全可行，不需要强行占用 `80` 端口。
 
 例如：
 
 - 本机：`8080`
-- 外网映射：`28080 -> 8080`
+- 外网：`28080 -> 8080`
 
 这是标准做法。
 
-你不必使用 `80` 端口。
+### 动态公网 IP
 
-## 动态公网 IP 是否必须固定
+不要求固定公网 IP。
 
-不需要固定公网 IP。
-
-如果你的公网 IP 经常变化，推荐优先使用：
-
-- DDNS 动态域名
-
-例如：
+更推荐的做法是使用 `DDNS`，例如：
 
 ```env
 PUBLIC_BASE_URL=http://你的DDNS域名:28080
 ```
 
-然后路由器做：
+这样公网 IP 变化时，不需要每次都改成新的 IP。
 
-- 外网 `28080` -> 内网 `8080`
+### 如果主要是内网使用
 
-这样即使公网 IP 变化，外部访问地址也不用反复改。
-
-## 如果我不想频繁改 PUBLIC_BASE_URL 怎么办
-
-可以把它固定成某个“主入口”：
-
-### 情况 1：主要内网使用，偶尔外网访问
-
-可以写成内网地址：
+你也可以把 `PUBLIC_BASE_URL` 写成内网地址：
 
 ```env
 PUBLIC_BASE_URL=http://192.168.1.50:8080
 ```
 
-这样：
+这样内网使用最稳，但要注意：
 
-- 内网访问最稳
-- 外网用户仍然可以手动用公网入口打开页面
+- 公网用户手动访问公网地址仍然可以打开页面
+- 某些绝对链接、文件预览、跳转可能仍然回到内网地址
 
-但要注意：
+如果你明确要兼顾公网访问，最好还是写：
 
-- 少数绝对链接、预览、跳转可能仍然指向内网地址
+- 公网 IP
+- 或 DDNS 域名
 
-### 情况 2：希望外网功能更稳
+## 与 HUSTOJ 共存
 
-更推荐写成：
+默认不会影响原有 `HUSTOJ` 数据。
 
-- DDNS 域名
-- 公网 IP + 外网映射端口
-
-例如：
-
-```env
-PUBLIC_BASE_URL=http://你的DDNS域名:28080
-```
-
-## 只要不是 localhost，内网地址也能给公网用户用吗
-
-不能这样理解。
-
-要区分：
-
-- `localhost` / `127.0.0.1` / `127.0.1.1`
-  - 只有服务器自己能访问
-- `192.168.x.x` / `10.x.x.x`
-  - 只有内网能访问
-- 公网 IP / DDNS 域名
-  - 外网用户才能访问
-
-如果你把 `PUBLIC_BASE_URL` 写成内网地址：
+原因是这套部署包会自己启动独立的 `MySQL` 容器，并且数据只写到：
 
 ```text
-http://192.168.1.50:8080
+./data/mysql
 ```
 
-那么公网浏览器拿到这个地址后，不会“自动绕回公网”，而是会直接去访问私网地址，结果通常失败。
+它不会默认复用你宿主机里已经给 `HUSTOJ` 使用的 MySQL 数据目录。
 
-所以：
+默认部署下：
 
-- 不是“只要不是 localhost 就可以”
-- 私网地址也不适合直接作为公网用户的默认入口
+- 不会清空 `HUSTOJ` 的数据库
+- 不会覆盖 `HUSTOJ` 的表
+- 不会影响 `HUSTOJ` 原有服务
 
-## 推送到 GitHub 后的一键下载部署
-
-可以实现。
-
-推荐做法是：把当前整个 `TeachingOpen2.8-ubuntu-local-deploy` 目录单独作为一个 GitHub 仓库根目录。
-
-这样后续在 Ubuntu 上只要一条命令就能：
-
-- 下载仓库
-- 或更新仓库
-- 然后继续执行部署
-
-注意：当前仓库里的大文件资源使用了 `Git LFS`，因为官方 `jar` 和前端 `zip` 都超过普通 GitHub 单文件限制。
-
-脚本文件是：
-
-```bash
-./bootstrap-from-github.sh
-```
-
-### 方式 1：公开仓库，直接做成 HUSTOJ 风格一键命令
-
-如果你的仓库是公开的，那么可以直接像 `HUSTOJ` 那样执行远程脚本。
-
-先下载再执行：
-
-```bash
-wget -O teachingopen-bootstrap.sh https://raw.githubusercontent.com/你的用户名/你的仓库名/main/bootstrap-from-github.sh
-sudo bash teachingopen-bootstrap.sh https://github.com/你的用户名/你的仓库名.git main /opt/teachingopen-source .
-```
-
-也可以直接一条命令完成：
-
-```bash
-wget -O- https://raw.githubusercontent.com/你的用户名/你的仓库名/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/你的用户名/你的仓库名.git main /opt/teachingopen-source .
-```
-
-或者使用 `curl`：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/你的用户名/你的仓库名/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/你的用户名/你的仓库名.git main /opt/teachingopen-source .
-```
-
-以后你更新了 GitHub 仓库，再执行同一条命令即可：
-
-- 已存在则自动 `pull`
-- 不存在则自动 `clone`
-- 然后继续部署
-- 脚本会自动安装 `git-lfs` 并拉取大文件资源
-
-### 方式 2：私有仓库，也可以拉取，但和公开仓库有区别
-
-如果你的仓库是私有的，那么：
-
-- 你自己的 Ubuntu 服务器仍然可以拉取
-- 但不能匿名直接访问私有仓库里的 `raw.githubusercontent.com/.../bootstrap-from-github.sh`
-
-也就是说：
-
-- 公开仓库可以直接用上面的 `wget` / `curl` 远程执行
-- 私有仓库不能直接匿名 `wget` 这个脚本
-
-### 私有仓库推荐做法
-
-#### 做法 A：部署脚本公开，代码仓库私有
-
-这是最接近 `HUSTOJ` 风格的方式。
-
-思路是：
-
-- 把 `bootstrap-from-github.sh` 单独放到一个公开仓库，或者公开 Gist
-- 真正的部署代码仓库保持私有
-- Ubuntu 服务器提前配置好 GitHub SSH Key
-
-然后执行：
-
-```bash
-wget -O- https://raw.githubusercontent.com/你的用户名/公开引导仓库/main/bootstrap-from-github.sh | sudo bash -s -- git@github.com:你的用户名/你的私有仓库.git main /opt/teachingopen-source .
-```
-
-这样：
-
-- 远程引导脚本可公开下载
-- 真正代码仍从你的私有仓库拉取
-- 服务器只要有 SSH Key，就能自动 `clone` / `pull`
-
-#### 做法 B：私有仓库直接 clone
-
-如果你不强求“远程脚本一条命令”，那私有仓库最稳妥的是：
-
-```bash
-git clone git@github.com:你的用户名/你的私有仓库.git /opt/teachingopen-source
-cd /opt/teachingopen-source
-git lfs install
-git lfs pull
-sudo ./install.sh
-```
-
-后续更新：
-
-```bash
-cd /opt/teachingopen-source
-git pull --ff-only
-sudo ./install.sh
-```
-
-### 结论
-
-如果你要的是完全接近：
-
-```bash
-wget http://xxx/bootstrap.sh
-sudo bash bootstrap.sh
-```
-
-这种体验，那么：
-
-- 公开仓库：完全可行
-- 私有仓库：也可行，但至少“引导脚本”要有一个可公开获取的地址，或者你先在服务器上完成一次 SSH 授权
-
-## 推荐 GitHub 仓库名
-
-如果你只上传当前这个部署目录，而且现在已经同时包含：
-
-- Ubuntu 部署
-- 群晖部署
-- 本地自托管说明
-
-那我更推荐仓库名：
-
-```text
-teachingopen-selfhosted-deploy
-```
-
-如果你更想强调 Ubuntu，也可以继续用：
-
-```text
-teachingopen-ubuntu-local-deploy
-```
-
-## 与 HUSTOJ 共存会不会清空原 MySQL
-
-默认不会。
-
-原因是这套部署包默认会自己启动一个独立的 MySQL 容器，并且数据保存在自己的目录里：
-
-- `./data/mysql`
-
-它不会默认去复用你宿主机上已经给 `HUSTOJ` 使用的 MySQL。
-
-所以按默认方式部署时：
-
-- 不会清空 `HUSTOJ` 原有数据库
-- 不会覆盖 `HUSTOJ` 现有表
-- 不会影响 `HUSTOJ` 正常使用
-
-### 你要避免的危险操作
-
-不要做下面这些事：
-
-- 不要把 `TeachingOpen` 的 MySQL 数据目录指向宿主机已有的 `/var/lib/mysql`
-- 不要把 `TeachingOpen` 的 SQL 手工导入到 `HUSTOJ` 正在使用的数据库中
-- 不要把 `TeachingOpen` 改成复用 `HUSTOJ` 同一个数据库名
-
-### 实际更容易冲突的是端口
-
-如果你 Ubuntu 上已经跑了别的系统，例如 `HUSTOJ`，真正更容易冲突的是：
+真正更容易冲突的通常是端口，例如：
 
 - `80`
 - `443`
 
-所以建议：
+所以更建议 `TeachingOpen` 使用自己的高位端口，例如 `8080`。
 
-- `TeachingOpen` 保持使用自己的高位端口，例如 `8080`
+## GitHub 与 Git LFS 说明
 
-## 数据持久化目录
+仓库中的两个大文件：
 
-重要数据都保存在本地 `data/` 目录下：
+- `assets/teaching-open-2.8.0.jar`
+- `assets/teaching-open-web-2.8.0.zip`
 
-- `data/mysql`
-- `data/redis`
-- `data/uploads`
-- `data/webapp`
-- `data/logs`
-- `data/kkfileview`
+已经通过 `.gitattributes` 走 `Git LFS` 管理，因为它们超过了普通 GitHub 单文件限制。
+
+如果你是手动 `git clone`，建议执行：
+
+```bash
+git lfs install
+git lfs pull
+```
+
+如果你走的是：
+
+- `bootstrap-from-github.sh`
+
+则脚本会自动处理 `Git LFS`，不需要你手动再拉一次。
+
+如果你后面把仓库从公开改成私有，需要注意：
+
+- 服务器上已拉下来的代码不会受影响
+- 后续再 `git pull` 时，需要给服务器配置 GitHub 认证
+- 匿名 `wget raw.githubusercontent.com/...` 将不再可用
 
 ## 群晖 NAS 部署
 
-已经另外补了一套群晖 `Container Manager` 项目式部署方案，文件见：
+群晖已经单独提供部署说明，见：
 
 - `README-Synology.md`
 - `docker-compose.synology.yml`
 - `.env.synology.example`
 
-它支持你在群晖里按照“项目 -> 新增 -> 粘贴 compose”的方式启动。
+这套方案适合你在群晖 `Container Manager` 中按“项目 -> 新增 -> 粘贴 Compose”方式启动。
 
-## 注意事项
+群晖方案与 Ubuntu 方案的主要区别是：
 
-- 第一次启动可能需要几分钟，因为 MySQL 需要初始化并导入 SQL
-- `assets/update2.8.sql` 仅作为升级参考保留
+- 不依赖 `apt-get`
+- 使用额外的 `web-prep` 容器处理前端静态资源
+
+如果你主要部署在群晖，直接优先看 `README-Synology.md` 即可。
+
+## 首次启动与排错
+
+第一次启动可能需要几分钟，因为需要完成：
+
+- MySQL 初始化
+- SQL 导入
+- 前端静态包解压
+- 容器镜像首次拉取
+
+如果刚启动后打不开，优先检查：
+
+```bash
+./status.sh
+./logs.sh mysql
+./logs.sh app
+./logs.sh nginx
+```
+
+重点排查：
+
+- `WEB_PORT` 是否被其它服务占用
+- 路由器映射端口是否填错
+- `.env` 中的 `PUBLIC_BASE_URL` 是否明显写错
+- 前端文件是否成功生成到 `runtime/web-root/`
+
+补充说明：
+
 - 全新安装使用的是 `assets/teachingopen2.8.sql`
-- 如果你修改了外网映射端口，记得同步更新路由器规则
-- 如果你修改了 `.env` 中的访问配置，执行 `./start.sh` 或 `./reconfigure.sh` 生效
+- `assets/update2.8.sql` 仅作为升级参考保留

@@ -505,14 +505,24 @@ start_stack() {
 
   echo
   echo "镜像拉取失败，部署已中断。"
-  echo "常见原因："
-  echo "  1. Docker Hub 网络访问不稳定"
-  echo "  2. Docker daemon 没有配置镜像加速或代理"
-  echo "  3. Docker 正在走 IPv6 访问 registry-1.docker.io，但连接被重置"
+  echo "常见原因及解决方法："
   echo
-  echo "如需手动重试，可执行："
-  echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
-  echo "  cd $ROOT_DIR && sudo ./install.sh"
+  echo "  情况 A：Docker 走 IPv6 访问 Docker Hub 导致连接被重置"
+  echo "    症状：错误含 'connection reset by peer' 或 'read tcp.*2600:'"
+  echo "    解决：脚本已尝试自动切换 IPv4（写入 /etc/hosts），请重新执行："
+  echo "      cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
+  echo "      cd $ROOT_DIR && sudo ./install.sh"
+  echo
+  echo "  情况 B：当前网络完全无法访问 Docker Hub（IPv4/IPv6 均被屏蔽）"
+  echo "    症状：自动重试后仍 connection reset 或 i/o timeout"
+  echo "    解决：为 Docker daemon 配置 HTTP 代理后重试："
+  echo "      sudo DOCKER_HTTP_PROXY=http://127.0.0.1:7890 \\"
+  echo "           DOCKER_HTTPS_PROXY=http://127.0.0.1:7890 \\"
+  echo "           ./configure-docker-mirror.sh"
+  echo "      cd $ROOT_DIR && sudo ./install.sh"
+  echo
+  echo "  情况 C：镜像加速站返回 403 Forbidden（加速站不支持私有镜像）"
+  echo "    解决：请勿在 .env 中为 MYSQL_IMAGE/APP_IMAGE/WEB_IMAGE 设置 daocloud 前缀。"
   return 1
 }
 

@@ -64,17 +64,32 @@ apply_prefer_ipv4() {
 
   if "${SUDO[@]}" grep -Eq '^[[:space:]]*precedence[[:space:]]+::ffff:0:0/96[[:space:]]+100' "$gai_file"; then
     echo "已检测到 /etc/gai.conf 中存在 IPv4 优先规则。"
-    return 0
-  fi
-
-  if "${SUDO[@]}" grep -Eq '^[[:space:]]*#[[:space:]]*precedence[[:space:]]+::ffff:0:0/96[[:space:]]+100' "$gai_file"; then
+  elif "${SUDO[@]}" grep -Eq '^[[:space:]]*#[[:space:]]*precedence[[:space:]]+::ffff:0:0/96[[:space:]]+100' "$gai_file"; then
     "${SUDO[@]}" sed -i 's/^[[:space:]]*#[[:space:]]*precedence[[:space:]]\+::ffff:0:0\/96[[:space:]]\+100/precedence ::ffff:0:0\/96 100/' "$gai_file"
+    echo "已写入 IPv4 优先规则到 $gai_file"
+    echo "备份文件：$backup_file"
   else
-    printf '\nprecedence ::ffff:0:0/96 100\n' | "${SUDO[@]}" tee -a "$gai_file" >/dev/null
+    printf '\nprecedence ::ffff:0:0/96 100\n' | "${SUDO[@]}" tee -a "$gai_file" > /dev/null
+    echo "已写入 IPv4 优先规则到 $gai_file"
+    echo "备份文件：$backup_file"
   fi
 
-  echo "已写入 IPv4 优先规则到 $gai_file"
-  echo "备份文件：$backup_file"
+  # Docker 使用 Go 语言编写，其内置 DNS 解析器不遵守 /etc/gai.conf。
+  # 但 Go 解析器会读取 /etc/hosts，因此将 Docker Hub 域名的 IPv4 地址写入
+  # /etc/hosts，可强制 Docker 走 IPv4 连接，避免 IPv6 被重置的问题。
+  echo "正在解析 Docker Hub 域名的 IPv4 地址并写入 /etc/hosts..."
+  local registry_hosts="registry-1.docker.io auth.docker.io production.cloudflare.docker.com"
+  local rhost ipv4_addr
+  for rhost in $registry_hosts; do
+    ipv4_addr="$(getent ahostsv4 "$rhost" 2>/dev/null | awk 'NR==1{print $1}')"
+    if [[ -n "$ipv4_addr" ]]; then
+      "${SUDO[@]}" sed -i "/[[:space:]]${rhost}\([[:space:]]\|$\)/d" /etc/hosts
+      printf '%s %s\n' "$ipv4_addr" "$rhost" | "${SUDO[@]}" tee -a /etc/hosts > /dev/null
+      echo "  $rhost → $ipv4_addr"
+    else
+      echo "  警告：无法解析 $rhost 的 IPv4 地址，跳过。"
+    fi
+  done
 }
 
 main() {

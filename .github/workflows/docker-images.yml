@@ -28,6 +28,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify bundled assets
+        run: |
+          git lfs ls-files
+
+          if head -n 1 assets/teaching-open-web-2.8.0.zip | grep -q "git-lfs.github.com/spec/v1"; then
+            echo "Frontend zip is still a Git LFS pointer, not the real file." >&2
+            exit 1
+          fi
+
+          if head -n 1 assets/teaching-open-2.8.0.jar | grep -q "git-lfs.github.com/spec/v1"; then
+            echo "Backend jar is still a Git LFS pointer, not the real file." >&2
+            exit 1
+          fi
+
+          unzip -tq assets/teaching-open-web-2.8.0.zip >/dev/null
+          unzip -tq assets/teaching-open-2.8.0.jar >/dev/null
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

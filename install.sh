@@ -10,9 +10,62 @@ else
 fi
 
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    return 1
+  command -v "$1" >/dev/null 2>&1
+}
+
+log() {
+  echo "$*"
+}
+
+warn() {
+  echo "$*" >&2
+}
+
+retry() {
+  local attempts="$1"
+  local delay_seconds="$2"
+  shift 2
+
+  local attempt=1
+  while true; do
+    if "$@"; then
+      return 0
+    fi
+
+    if (( attempt >= attempts )); then
+      return 1
+    fi
+
+    warn "命令执行失败，${delay_seconds} 秒后重试（${attempt}/${attempts}）..."
+    sleep "$delay_seconds"
+    attempt=$((attempt + 1))
+  done
+}
+
+apt_update() {
+  if retry 3 5 "${SUDO[@]}" apt-get update; then
+    return 0
   fi
+
+  if [[ -f /etc/apt/sources.list.d/docker.list ]]; then
+    warn "apt-get update 失败，尝试移除残留的 Docker 官方源后重试。"
+    cleanup_official_docker_repo
+    retry 3 5 "${SUDO[@]}" apt-get update
+    return 0
+  fi
+
+  return 1
+}
+
+apt_install() {
+  retry 3 5 "${SUDO[@]}" apt-get install -y "$@"
+}
+
+curl_download() {
+  local url="$1"
+  local output_file="$2"
+
+  retry 3 5 curl -4 -fsSL "$url" -o "$output_file"
 }
 
 prompt_yes_no() {
@@ -147,22 +200,153 @@ rand_hex() {
   fi
 }
 
+docker_compose_available() {
+  if need_cmd docker && "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
+    return 0
+  fi
+
+  need_cmd docker-compose
+}
+
+docker_compose_cmd() {
+  if need_cmd docker && "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
+    "${SUDO[@]}" docker compose "$@"
+    return 0
+  fi
+
+  if need_cmd docker-compose; then
+    "${SUDO[@]}" docker-compose "$@"
+    return 0
+  fi
+
+  warn "未检测到 docker compose 或 docker-compose。"
+  return 1
+}
+
+apt_has_package() {
+  local package_name="$1"
+  "${SUDO[@]}" apt-cache show "$package_name" >/dev/null 2>&1
+}
+
+cleanup_official_docker_repo() {
+  "${SUDO[@]}" rm -f /etc/apt/sources.list.d/docker.list
+  "${SUDO[@]}" rm -f /etc/apt/keyrings/docker.asc
+}
+
+install_docker_from_official_repo() {
+  local arch version_codename temp_keyring
+
+  if [[ ! -r /etc/os-release ]]; then
+    warn "无法读取 /etc/os-release，无法继续使用 Docker 官方源安装。"
+    return 1
+  fi
+
+  # shellcheck disable=SC1091
+  source /etc/os-release
+
+  if [[ "${ID:-}" != "ubuntu" ]]; then
+    warn "当前系统不是 Ubuntu，跳过 Docker 官方源安装。"
+    return 1
+  fi
+
+  arch="$(dpkg --print-architecture)"
+  version_codename="${VERSION_CODENAME:-}"
+  if [[ -z "$version_codename" ]]; then
+    warn "无法识别 Ubuntu 版本代号，跳过 Docker 官方源安装。"
+    return 1
+  fi
+
+  log "正在尝试通过 Docker 官方源安装 Docker..."
+  "${SUDO[@]}" install -m 0755 -d /etc/apt/keyrings
+  temp_keyring="$(mktemp)"
+  curl_download "https://download.docker.com/linux/ubuntu/gpg" "$temp_keyring"
+  "${SUDO[@]}" mv "$temp_keyring" /etc/apt/keyrings/docker.asc
+  "${SUDO[@]}" chmod a+r /etc/apt/keyrings/docker.asc
+
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
+    "$arch" "$version_codename" | "${SUDO[@]}" tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+  apt_update
+  apt_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+}
+
+install_docker_from_ubuntu_repo() {
+  local compose_package=""
+
+  log "正在回退到 Ubuntu 自带软件源安装 Docker..."
+  cleanup_official_docker_repo
+  apt_update
+
+  if apt_has_package docker-compose-v2; then
+    compose_package="docker-compose-v2"
+  elif apt_has_package docker-compose-plugin; then
+    compose_package="docker-compose-plugin"
+  elif apt_has_package docker-compose; then
+    compose_package="docker-compose"
+  fi
+
+  if [[ -n "$compose_package" ]]; then
+    apt_install docker.io "$compose_package"
+  else
+    apt_install docker.io
+  fi
+}
+
+ensure_compose() {
+  if docker_compose_available; then
+    return 0
+  fi
+
+  log "Docker Compose 尚未就绪，开始补装..."
+  apt_update
+
+  if apt_has_package docker-compose-v2 && apt_install docker-compose-v2; then
+    return 0
+  fi
+
+  if apt_has_package docker-compose-plugin && apt_install docker-compose-plugin; then
+    return 0
+  fi
+
+  if apt_has_package docker-compose && apt_install docker-compose; then
+    return 0
+  fi
+
+  return 1
+}
+
 ensure_base_packages() {
-  "${SUDO[@]}" apt-get update
-  "${SUDO[@]}" apt-get install -y ca-certificates curl unzip
+  apt_update
+  apt_install ca-certificates curl unzip
 }
 
 ensure_docker() {
   if ! need_cmd docker; then
-    curl -fsSL https://get.docker.com | "${SUDO[@]}" sh
-  fi
-
-  if ! "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
-    "${SUDO[@]}" apt-get update
-    "${SUDO[@]}" apt-get install -y docker-compose-plugin
+    if install_docker_from_official_repo; then
+      log "Docker 已通过官方源安装完成。"
+    else
+      warn "Docker 官方源安装失败，常见原因是 download.docker.com 当前网络不通或被重置。"
+      warn "脚本现在会自动回退到 Ubuntu 自带软件源继续安装。"
+      install_docker_from_ubuntu_repo
+      log "Docker 已通过 Ubuntu 软件源安装完成。"
+    fi
+  else
+    log "已检测到现有 Docker，跳过安装。"
   fi
 
   "${SUDO[@]}" systemctl enable --now docker
+
+  if ! ensure_compose; then
+    warn "Docker 已安装，但 Docker Compose 仍不可用。"
+    warn "请检查当前 Ubuntu 软件源是否可正常安装 docker-compose 相关软件包。"
+    exit 1
+  fi
+
+  if need_cmd docker && "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
+    log "已检测到 docker compose 插件。"
+  elif need_cmd docker-compose; then
+    log "已检测到 docker-compose 独立命令。"
+  fi
 }
 
 prepare_env_file() {
@@ -233,13 +417,14 @@ prepare_directories() {
 start_stack() {
   (
     cd "$ROOT_DIR"
-    if ! "${SUDO[@]}" docker compose pull; then
+
+    if ! docker_compose_cmd pull; then
       echo
       echo "镜像拉取失败，部署已中断。"
       echo "常见原因："
       echo "  1. Docker Hub 网络访问不稳定"
       echo "  2. Docker daemon 没有配置镜像加速或代理"
-      echo "  3. IPv6 到 registry-1.docker.io 的连接被重置"
+      echo "  3. 到 registry-1.docker.io 的网络连接被重置"
       echo
       echo "建议先执行："
       echo "  cd $ROOT_DIR && sudo ./configure-docker-mirror.sh"
@@ -248,7 +433,8 @@ start_stack() {
       echo "  cd $ROOT_DIR && sudo ./install.sh"
       return 1
     fi
-    "${SUDO[@]}" docker compose up -d
+
+    docker_compose_cmd up -d
   )
 }
 
@@ -257,12 +443,14 @@ main() {
   ensure_docker
   prepare_env_file
   prepare_directories
+
   echo
   if ! prompt_yes_no "配置已准备完成，是否现在开始部署并启动容器？" Y; then
     echo "已取消本次启动。"
     echo "你可以先修改 $ROOT_DIR/.env，之后再手动执行 ./start.sh。"
     exit 0
   fi
+
   bash "$ROOT_DIR/scripts/prepare-web.sh"
   start_stack
 

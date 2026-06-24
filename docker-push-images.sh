@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-chardlink}"
+IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-chardchao}"
 IMAGE_TAG="${IMAGE_TAG:-2.8.0}"
 
 docker push "${IMAGE_NAMESPACE}/teachingopen-app:${IMAGE_TAG}"

@@ -40,7 +40,7 @@ teachingopen
 ```yaml
 services:
   mysql:
-    image: chardlink/teachingopen-mysql:2.8.0
+    image: chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -65,7 +65,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: chardlink/teachingopen-app:2.8.0
+    image: chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -99,7 +99,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: chardlink/teachingopen-web:2.8.0
+    image: chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -113,9 +113,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `chardlink/teachingopen-mysql:2.8.0`
-- `chardlink/teachingopen-app:2.8.0`
-- `chardlink/teachingopen-web:2.8.0`
+- `chardchao/teachingopen-mysql:2.8.0`
+- `chardchao/teachingopen-app:2.8.0`
+- `chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码

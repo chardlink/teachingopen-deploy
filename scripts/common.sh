@@ -28,6 +28,17 @@ docker_compose() {
   need_cmd docker
   (
     cd "$ROOT_DIR"
-    "${SUDO[@]}" docker compose "$@"
+    if "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
+      "${SUDO[@]}" docker compose "$@"
+      return 0
+    fi
+
+    if command -v docker-compose >/dev/null 2>&1; then
+      "${SUDO[@]}" docker-compose "$@"
+      return 0
+    fi
+
+    echo "未检测到 docker compose 或 docker-compose，请先执行 ./install.sh" >&2
+    exit 1
   )
 }

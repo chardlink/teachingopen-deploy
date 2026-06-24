@@ -20,10 +20,13 @@ wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bo
 - 安装 `git`
 - 安装 `git-lfs`
 - 下载仓库
-- 安装 `Docker`
+- 安装 `Docker`（优先官方源，失败自动回退到 Ubuntu 软件源）
 - 创建 `.env`
 - 提示你填写端口和 `PUBLIC_BASE_URL`
 - 自动启动全部容器
+
+如果你的网络访问 `download.docker.com` 不稳定，不需要手动清理再重来。
+现在脚本会先尝试官方安装方式，失败后自动改走 Ubuntu 自带软件源继续安装。
 
 如果后续要改端口或外网入口，执行：
 
@@ -89,7 +92,7 @@ teachingopen
 ```yaml
 services:
   mysql:
-    image: chardlink/teachingopen-mysql:2.8.0
+    image: chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -114,7 +117,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: chardlink/teachingopen-app:2.8.0
+    image: chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -148,7 +151,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: chardlink/teachingopen-web:2.8.0
+    image: chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -162,9 +165,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `chardlink/teachingopen-mysql:2.8.0`
-- `chardlink/teachingopen-app:2.8.0`
-- `chardlink/teachingopen-web:2.8.0`
+- `chardchao/teachingopen-mysql:2.8.0`
+- `chardchao/teachingopen-app:2.8.0`
+- `chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码
@@ -214,14 +217,14 @@ http://群晖IP:8080
 本地构建：
 
 ```bash
-IMAGE_NAMESPACE=chardlink IMAGE_TAG=2.8.0 ./docker-build-images.sh
+IMAGE_NAMESPACE=chardchao IMAGE_TAG=2.8.0 ./docker-build-images.sh
 ```
 
 登录并推送：
 
 ```bash
 docker login
-IMAGE_NAMESPACE=chardlink IMAGE_TAG=2.8.0 ./docker-push-images.sh
+IMAGE_NAMESPACE=chardchao IMAGE_TAG=2.8.0 ./docker-push-images.sh
 ```
 
 ## Ubuntu 部署会做什么

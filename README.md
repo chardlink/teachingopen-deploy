@@ -32,6 +32,7 @@
 - 支持自定义端口
 - 支持后续交互式修改端口和 `PUBLIC_BASE_URL`
 - 支持 `GitHub` 拉取后直接部署
+- 支持“纯 `image:`”方式部署
 - 支持群晖 `NAS` 项目式导入
 
 ## 适用场景
@@ -74,6 +75,25 @@ curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/
 - `docker-compose.synology.yml`
 - `.env.synology.example`
 
+### 方式 4：纯 image 部署
+
+如果你不想通过 GitHub 拉源码，而是希望像下面这样：
+
+```yaml
+image: yourdockerhub/teachingopen-app:2.8.0
+```
+
+那也是可以的，但前提是你要先把本仓库里的自定义镜像发布到你自己的镜像仓库。
+
+仓库里已经补好了：
+
+- `docker/app/Dockerfile`
+- `docker/web/Dockerfile`
+- `docker/mysql/Dockerfile`
+- `docker-compose.registry.yml`
+- `docker-build-images.sh`
+- `docker-push-images.sh`
+
 ## Ubuntu 部署会做什么
 
 `install.sh` 会自动完成这些事情：
@@ -95,6 +115,141 @@ curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/
 - 仓库已存在时执行 `fetch + pull`
 - 自动拉取 `Git LFS` 大文件
 - 自动进入部署目录并执行 `install.sh`
+
+## 纯 image 部署说明
+
+如果你的目标是：
+
+- 不用 GitHub 地址
+- 不用先 clone 整个仓库
+- 直接在群晖或 Ubuntu 里贴 `compose`
+- 全部通过 `image:` 拉取
+
+那么正确做法不是把整个系统硬塞进一个容器，而是：
+
+- `TeachingOpen app` 用你自己的镜像
+- `TeachingOpen web` 用你自己的镜像
+- 初始化过的 `MySQL` 用你自己的镜像
+- `Redis` 继续用官方镜像
+- `kkFileView` 继续用官方镜像
+
+也就是说，可以做到“纯 image 部署”，但**不建议强行做成单镜像单容器**。
+
+原因很简单：
+
+- `TeachingOpen 2.8` 后端硬依赖 `MySQL`
+- 同时还依赖 `Redis`
+- 文件预览依赖 `kkFileView`
+- 前端静态资源和后端也不是同一个运行进程
+
+所以更稳妥的方式是“多服务 compose，全都写 `image:`”，而不是“一个超级大镜像包打一切”。
+
+### 纯 image compose 示例
+
+```yaml
+services:
+  mysql:
+    image: yourdockerhub/teachingopen-mysql:2.8.0
+    container_name: teachingopen-mysql
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: change-this-root-password
+      MYSQL_DATABASE: teachingopen
+      MYSQL_USER: teachingopen
+      MYSQL_PASSWORD: change-this-app-password
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: teachingopen-redis
+    restart: unless-stopped
+    command: >
+      sh -c 'redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}" --save 60 1'
+    environment:
+      TZ: Asia/Shanghai
+      REDIS_PASSWORD: change-this-redis-password
+    volumes:
+      - ./data/redis:/data
+
+  app:
+    image: yourdockerhub/teachingopen-app:2.8.0
+    container_name: teachingopen-app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      TZ: Asia/Shanghai
+      JAVA_OPTS: -Xms512m -Xmx2048m -Dfile.encoding=UTF-8
+      TEACHING_DOMAIN: http://192.168.1.50:8080
+      FILE_VIEW_DOMAIN: http://192.168.1.50:8080/preview
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: teachingopen
+      DB_USER: teachingopen
+      DB_PASS: change-this-app-password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: change-this-redis-password
+    volumes:
+      - ./data/uploads:/data/uploads
+      - ./data/webapp:/data/webapp
+      - ./data/logs:/data/logs
+
+  kkfileview:
+    image: keking/kkfileview:latest
+    container_name: teachingopen-kkfileview
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/kkfileview:/opt/kkFileView
+
+  nginx:
+    image: yourdockerhub/teachingopen-web:2.8.0
+    container_name: teachingopen-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+      - kkfileview
+    ports:
+      - "8080:80"
+```
+
+正式文件见：
+
+- `docker-compose.registry.yml`
+
+## 如何发布你自己的 image
+
+### 1. 本地构建
+
+```bash
+IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-build-images.sh
+```
+
+### 2. 登录镜像仓库
+
+```bash
+docker login
+```
+
+### 3. 推送镜像
+
+```bash
+IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-push-images.sh
+```
+
+### 4. 之后部署时就不再需要 GitHub
+
+你后续只需要：
+
+- 把 `docker-compose.registry.yml` 内容贴到群晖项目里
+- 或复制到 Ubuntu 上直接 `docker compose up -d`
+
+整个部署过程都不再依赖 GitHub 地址。
 
 ## 部署架构
 
@@ -144,6 +299,8 @@ Ubuntu 方案会启动以下服务：
 ├─ install.sh                  Ubuntu 首次部署脚本
 ├─ reconfigure.sh              修改端口 / PUBLIC_BASE_URL
 ├─ configure-docker-mirror.sh  配置 Docker 镜像加速
+├─ docker-build-images.sh      构建纯 image 部署镜像
+├─ docker-push-images.sh       推送纯 image 部署镜像
 ├─ bootstrap-from-github.sh    GitHub 拉取并部署脚本
 └─ README-Synology.md          群晖部署说明
 ```

@@ -144,12 +144,12 @@ prompt_port() {
   local value
 
   while true; do
-    value="$(prompt_with_default "请输入 $label" "$default")"
+    value="$(prompt_with_default "请输入 ${label}" "$default")"
     if validate_port "$value"; then
       printf '%s' "$value"
       return 0
     fi
-    echo "$label 必须是 1 到 65535 之间的整数。"
+    echo "${label} 必须是 1 到 65535 之间的整数。"
   done
 }
 
@@ -180,8 +180,16 @@ edit_env_file() {
   else
     echo
     echo "未找到可用的文本编辑器。"
-    echo "请在另一个终端里手动修改 $env_file，完成后按回车继续。"
+    echo "请在另一终端手动修改 $env_file，完成后按回车继续。"
     read -r
+  fi
+}
+
+rand_hex() {
+  if need_cmd openssl; then
+    openssl rand -hex 12
+  else
+    date +%s%N | sha256sum | awk '{print substr($1, 1, 24)}'
   fi
 }
 
@@ -223,14 +231,6 @@ show_env_summary() {
   echo "  WEB_PORT=$WEB_PORT"
   echo "  APP_DEBUG_PORT=$APP_DEBUG_PORT"
   echo "  PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
-}
-
-rand_hex() {
-  if need_cmd openssl; then
-    openssl rand -hex 12
-  else
-    date +%s%N | sha256sum | awk '{print substr($1, 1, 24)}'
-  fi
 }
 
 docker_compose_available() {
@@ -451,28 +451,64 @@ prepare_directories() {
     "$ROOT_DIR/runtime/web-root"
 }
 
-start_stack() {
-  (
-    cd "$ROOT_DIR"
+docker_pull_failure_needs_ipv4_retry() {
+  local log_file="$1"
 
-    if ! docker_compose_cmd pull; then
-      echo
-      echo "镜像拉取失败，部署已中断。"
-      echo "常见原因："
-      echo "  1. Docker Hub 网络访问不稳定"
-      echo "  2. Docker daemon 没有配置镜像加速或代理"
-      echo "  3. Docker 正在走 IPv6 访问 registry-1.docker.io，但连接被重置"
-      echo
-      echo "建议先执行："
-      echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
-      echo
-      echo "配置完成后，再重新执行："
-      echo "  cd $ROOT_DIR && sudo ./install.sh"
-      return 1
+  grep -Eiq \
+    'registry-1\.docker\.io|docker\.io/|connection reset by peer|failed to resolve reference|TLS handshake timeout|i/o timeout|read tcp .*2600:' \
+    "$log_file"
+}
+
+configure_docker_ipv4_retry() {
+  if [[ ! -f "$ROOT_DIR/configure-docker-mirror.sh" ]]; then
+    warn "未找到 $ROOT_DIR/configure-docker-mirror.sh，无法自动切换 IPv4。"
+    return 1
+  fi
+
+  echo "检测到 Docker Hub 拉取疑似走 IPv6 被重置，正在自动切换为优先 IPv4 并重试一次..."
+  "${SUDO[@]}" env NONINTERACTIVE=yes PREFER_IPV4=yes bash "$ROOT_DIR/configure-docker-mirror.sh"
+}
+
+start_stack() {
+  local pull_log
+
+  cd "$ROOT_DIR"
+  pull_log="$(mktemp)"
+
+  if docker_compose_cmd pull >"$pull_log" 2>&1; then
+    cat "$pull_log"
+    rm -f "$pull_log"
+    docker_compose_cmd up -d
+    return 0
+  fi
+
+  cat "$pull_log"
+
+  if docker_pull_failure_needs_ipv4_retry "$pull_log"; then
+    echo
+    if configure_docker_ipv4_retry && docker_compose_cmd pull >"$pull_log" 2>&1; then
+      cat "$pull_log"
+      rm -f "$pull_log"
+      docker_compose_cmd up -d
+      return 0
     fi
 
-    docker_compose_cmd up -d
-  )
+    cat "$pull_log"
+  fi
+
+  rm -f "$pull_log"
+
+  echo
+  echo "镜像拉取失败，部署已中断。"
+  echo "常见原因："
+  echo "  1. Docker Hub 网络访问不稳定"
+  echo "  2. Docker daemon 没有配置镜像加速或代理"
+  echo "  3. Docker 正在走 IPv6 访问 registry-1.docker.io，但连接被重置"
+  echo
+  echo "如需手动重试，可执行："
+  echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
+  echo "  cd $ROOT_DIR && sudo ./install.sh"
+  return 1
 }
 
 main() {

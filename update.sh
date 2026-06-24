@@ -26,7 +26,7 @@ backup_local_repo_changes() {
     git -C "$ROOT_DIR" diff --cached > "$backup_dir/index.patch"
 
     echo "检测到仓库脚本有本地修改，已自动备份到：$backup_dir"
-    echo "现在会丢弃这些仓库内的本地修改，继续更新。"
+    echo "现在会丢弃这些仓库内修改，继续对齐远端版本。"
     git -C "$ROOT_DIR" reset --hard
   fi
 }
@@ -81,10 +81,10 @@ main() {
   bash "$ROOT_DIR/scripts/prepare-web.sh"
 
   echo "拉取最新容器镜像..."
-  if ! docker_compose pull; then
+  if ! docker_compose_pull_with_retry; then
     echo
-    echo "镜像拉取失败。"
-    echo "如果是 Docker Hub 网络问题，尤其是 IPv6 被重置，请先执行："
+    echo "镜像拉取失败，更新已中断。"
+    echo "如果当前网络一直无法访问 Docker Hub，请手动执行："
     echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
     echo "然后再重新执行："
     echo "  cd $ROOT_DIR && sudo ./update.sh"

@@ -59,7 +59,14 @@ cd /opt/teachingopen-source
 ./reconfigure.sh
 ```
 
-如果 Docker Hub 拉镜像失败，先执行：
+如果 Docker Hub 拉镜像时因为 IPv6 被重置而失败，`install.sh` 和 `update.sh` 现在会自动：
+
+- 检测失败日志
+- 自动执行 `PREFER_IPV4=yes ./configure-docker-mirror.sh`
+- 自动重试一次拉镜像
+
+也就是说，正常情况下你不需要再手动先跑这两行命令。
+只有当网络环境持续异常、自动重试仍然失败时，才需要你手动执行：
 
 ```bash
 cd /opt/teachingopen-source
@@ -728,6 +735,7 @@ sudo ./update.sh
 - 自动拉取 Git LFS 大文件
 - 自动重新准备前端静态文件
 - 自动拉取镜像
+- 如果 Docker Hub 因 IPv6 被重置导致拉镜像失败，自动切换为优先 IPv4 并重试一次
 - 自动重建并启动容器
 
 更新完成后，可执行：

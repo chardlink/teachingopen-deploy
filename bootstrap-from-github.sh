@@ -8,9 +8,7 @@ else
 fi
 
 need_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    return 1
-  fi
+  command -v "$1" >/dev/null 2>&1
 }
 
 ensure_git() {
@@ -31,20 +29,13 @@ ensure_git_lfs() {
 
 usage() {
   cat <<'EOF'
-用法：
-  ./bootstrap-from-github.sh <REPO_URL> [BRANCH] [TARGET_DIR] [PROJECT_SUBDIR]
+用法： ./bootstrap-from-github.sh <REPO_URL> [BRANCH] [TARGET_DIR] [PROJECT_SUBDIR]
 
 也支持环境变量：
   REPO_URL         GitHub 仓库地址
   REPO_BRANCH      分支名，默认 main
-  TARGET_DIR       在 Ubuntu 上拉取到的目录，默认 /opt/teachingopen-source
+  TARGET_DIR       Ubuntu 上的部署目录，默认 /opt/teachingopen-source
   PROJECT_SUBDIR   install.sh 所在子目录，默认 .
-
-参数说明：
-  REPO_URL        GitHub 仓库地址，例如 https://github.com/you/repo.git
-  BRANCH          分支名，默认 main
-  TARGET_DIR      在 Ubuntu 上拉取到的目录，默认 /opt/teachingopen-source
-  PROJECT_SUBDIR  install.sh 所在子目录，默认 .
 
 示例：
   ./bootstrap-from-github.sh https://github.com/you/repo.git main /opt/teachingopen-source .
@@ -52,9 +43,6 @@ usage() {
 公开仓库一键拉取示例：
   wget -O- https://raw.githubusercontent.com/you/repo/main/bootstrap-from-github.sh | \
     sudo bash -s -- https://github.com/you/repo.git main /opt/teachingopen-source .
-
-私有仓库建议：
-  先给服务器配置 GitHub SSH Key，然后使用 git@github.com:you/repo.git
 EOF
 }
 
@@ -62,6 +50,42 @@ REPO_URL="${1:-${REPO_URL:-}}"
 BRANCH="${2:-${REPO_BRANCH:-main}}"
 TARGET_DIR="${3:-${TARGET_DIR:-/opt/teachingopen-source}}"
 PROJECT_SUBDIR="${4:-${PROJECT_SUBDIR:-.}}"
+
+backup_local_repo_changes() {
+  local repo_dir="$1"
+  local backup_root="$repo_dir/backups/repo-local-changes"
+  local stamp backup_dir
+
+  if [[ -n "$("${SUDO[@]}" git -C "$repo_dir" status --porcelain --untracked-files=no)" ]]; then
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    backup_dir="$backup_root/$stamp"
+    mkdir -p "$backup_dir"
+
+    "${SUDO[@]}" git -C "$repo_dir" status --short > "$backup_dir/status.txt"
+    "${SUDO[@]}" git -C "$repo_dir" diff > "$backup_dir/working-tree.patch"
+    "${SUDO[@]}" git -C "$repo_dir" diff --cached > "$backup_dir/index.patch"
+
+    echo "检测到仓库脚本有本地修改，已自动备份到：$backup_dir"
+    echo "现在会丢弃这些仓库内的本地修改，继续对齐远端版本。"
+    "${SUDO[@]}" git -C "$repo_dir" reset --hard
+  fi
+}
+
+sync_existing_repo() {
+  echo "检测到已存在仓库，开始更新：$TARGET_DIR"
+  "${SUDO[@]}" git -C "$TARGET_DIR" remote set-url origin "$REPO_URL"
+  "${SUDO[@]}" git -C "$TARGET_DIR" fetch --all --tags
+
+  backup_local_repo_changes "$TARGET_DIR"
+
+  if "${SUDO[@]}" git -C "$TARGET_DIR" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    "${SUDO[@]}" git -C "$TARGET_DIR" checkout "$BRANCH"
+  else
+    "${SUDO[@]}" git -C "$TARGET_DIR" checkout -B "$BRANCH" "origin/$BRANCH"
+  fi
+
+  "${SUDO[@]}" git -C "$TARGET_DIR" reset --hard "origin/$BRANCH"
+}
 
 if [[ -z "$REPO_URL" ]]; then
   usage
@@ -72,16 +96,13 @@ ensure_git
 ensure_git_lfs
 
 if [[ -d "$TARGET_DIR/.git" ]]; then
-  echo "检测到已存在仓库，开始更新：$TARGET_DIR"
-  "${SUDO[@]}" git -C "$TARGET_DIR" fetch --all --tags
-  "${SUDO[@]}" git -C "$TARGET_DIR" checkout "$BRANCH"
-  "${SUDO[@]}" git -C "$TARGET_DIR" pull --ff-only origin "$BRANCH"
+  sync_existing_repo
 else
   echo "开始克隆仓库：$REPO_URL"
   "${SUDO[@]}" git clone --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"
 fi
 
-"${SUDO[@]}" git -C "$TARGET_DIR" lfs install
+"${SUDO[@]}" git -C "$TARGET_DIR" lfs install --local
 "${SUDO[@]}" git -C "$TARGET_DIR" lfs pull
 
 DEPLOY_DIR="$TARGET_DIR/$PROJECT_SUBDIR"
@@ -100,7 +121,5 @@ fi
 echo "进入部署目录：$DEPLOY_DIR"
 cd "$DEPLOY_DIR"
 
-chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh configure-docker-mirror.sh bootstrap-from-github.sh scripts/*.sh
-
 echo "开始执行一键部署..."
-"${SUDO[@]}" ./install.sh
+bash "$DEPLOY_DIR/install.sh"

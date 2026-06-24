@@ -15,6 +15,23 @@
 wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
 ```
 
+如果第一次安装中途失败，不需要删除整个目录，也不需要删除 `data/`。
+可以直接重新执行同一条命令；如果仓库已经拉下来，也可以执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./install.sh
+```
+
+现在 `bootstrap-from-github.sh` 会在更新前自动把仓库脚本改动备份到 `backups/repo-local-changes/`，然后丢弃这些仓库内改动并强制对齐远端版本，所以不会再因为上一次失败留下的脚本改动卡在 `git pull`。
+
+如果后续你只是想升级到仓库最新代码，执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./update.sh
+```
+
 脚本会自动完成：
 
 - 安装 `git`
@@ -300,6 +317,7 @@ Ubuntu 方案会启动以下服务：
 ├─ docker-build-images.sh      构建纯 image 部署镜像
 ├─ docker-push-images.sh       推送纯 image 部署镜像
 ├─ bootstrap-from-github.sh    GitHub 拉取并部署脚本
+├─ update.sh                   一键更新仓库并重建服务
 └─ README-Synology.md          群晖部署说明
 ```
 
@@ -658,6 +676,59 @@ sudo ./install.sh
 ```bash
 cd /opt/teachingopen-source
 ./start.sh
+```
+
+## 安装失败后如何重试
+
+如果你是第一次安装中途失败：
+
+- 不需要删除 `/opt/teachingopen-source`
+- 不需要删除 `data/`
+- 不需要重建数据库
+
+直接重新执行原来的 `wget ... bootstrap-from-github.sh` 命令即可。
+
+如果仓库已经在本机，也可以直接执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./install.sh
+```
+
+现在 `bootstrap-from-github.sh` 在更新前会自动检查仓库内脚本是否被改动。
+如果发现有改动，会先把差异备份到：
+
+```text
+backups/repo-local-changes/时间戳/
+```
+
+然后自动丢弃这些仓库脚本改动，再继续同步远端代码。
+所以即使上一次安装失败了，也不会再卡在 `git pull`。
+
+## 后续升级如何做
+
+后续如果你已经部署成功，只想把这套部署仓库更新到最新版本，执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./update.sh
+```
+
+`update.sh` 会自动完成这些事情：
+
+- 获取 GitHub 最新代码
+- 自动备份并清理仓库脚本的本地改动
+- 自动拉取 Git LFS 大文件
+- 自动重新准备前端静态文件
+- 自动拉取镜像
+- 自动重建并启动容器
+
+更新完成后，可执行：
+
+```bash
+cd /opt/teachingopen-source
+./status.sh
+./logs.sh
 ```
 
 ## 群晖 NAS 部署

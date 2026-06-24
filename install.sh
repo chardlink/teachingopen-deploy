@@ -73,10 +73,7 @@ curl_download() {
 
 apt_has_install_candidate() {
   local package_name="$1"
-  local candidate
-
-  candidate="$("${SUDO[@]}" apt-cache policy "$package_name" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')"
-  [[ -n "$candidate" && "$candidate" != "(none)" ]]
+  "${SUDO[@]}" env LC_ALL=C apt-cache show "$package_name" 2>/dev/null | grep -q '^Package: '
 }
 
 ensure_universe_repository() {

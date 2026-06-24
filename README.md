@@ -1,150 +1,90 @@
-# TeachingOpen 2.8 自托管部署包
+# TeachingOpen 2.8 自托管部署
 
-> 一个面向 `TeachingOpen 2.8` 的独立部署仓库，目标是不用宝塔，直接在 `Ubuntu` 或群晖 `NAS` 上完成本地化、自托管部署。
+这个仓库只做两件事：
 
-## 这是什么
+1. `Ubuntu` 一键脚本部署
+2. `群晖 NAS` 容器镜像部署
 
-这个仓库**不是 `TeachingOpen 2.8` 的官方源码仓库**，而是一套已经整理好的自托管部署包。
+不再依赖宝塔，数据默认保存在你自己的机器上。
 
-它主要解决这些问题：
+## 方式 1：Ubuntu 一键脚本部署
 
-- 不想依赖宝塔
-- 想直接在 `Ubuntu` 上一键部署
-- 想把数据保存在自己机器上
-- 想在局域网、本地服务器、群晖 `NAS` 上长期运行
-- 想兼容动态公网 `IP`、端口映射、内外网同时访问
-
-仓库内已经包含：
-
-- 官方后端 `jar`
-- 官方前端 `zip`
-- 初始化 `SQL`
-- `Docker Compose` 部署文件
-- `Ubuntu` 一键部署脚本
-- 群晖 `Container Manager` 部署文件
-
-## 项目特点
-
-- 不依赖宝塔面板
-- 使用 `Docker Compose` 统一部署
-- 文件上传走本地存储
-- 数据全部保存在本机目录
-- 支持自定义端口
-- 支持后续交互式修改端口和 `PUBLIC_BASE_URL`
-- 支持 `Ubuntu` 一键脚本部署
-- 支持群晖 `NAS` 纯 `image:` 部署
-- 支持通用 Docker / Compose 镜像部署
-
-## 适用场景
-
-- Ubuntu 服务器本地部署
-- 局域网环境使用
-- 动态公网 `IP` + 路由器端口映射
-- 群晖 `NAS` 容器部署
-- 与宿主机其它服务并存，例如 `HUSTOJ`
-
-## 快速开始
-
-### 方式 1：Ubuntu 本地目录直接部署
-
-```bash
-cd /你的目录/TeachingOpen2.8-ubuntu-local-deploy
-chmod +x install.sh start.sh stop.sh logs.sh status.sh backup.sh reconfigure.sh configure-docker-mirror.sh bootstrap-from-github.sh scripts/*.sh
-sudo ./install.sh
-```
-
-### 方式 2：从 GitHub 一键拉取并部署
-
-仓库保持公开时，可以直接执行：
+直接执行这一条命令：
 
 ```bash
 wget -O- https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
 ```
 
-或者：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/chardlink/teachingopen-deploy/main/bootstrap-from-github.sh | sudo bash -s -- https://github.com/chardlink/teachingopen-deploy.git main /opt/teachingopen-source .
-```
-
-### 方式 3：群晖 NAS 镜像部署
-
-群晖请直接查看：
-
-- `README-Synology.md`
-- `docker-compose.synology.yml`
-- `.env.synology.example`
-
-### 方式 4：Ubuntu / 通用 Docker 镜像部署
-
-如果你不想通过 GitHub 拉源码，而是希望像下面这样：
-
-```yaml
-image: yourdockerhub/teachingopen-app:2.8.0
-```
-
-那也是可以的，但前提是你要先把本仓库里的自定义镜像发布到你自己的镜像仓库。
-
-仓库里已经补好了：
-
-- `docker/app/Dockerfile`
-- `docker/web/Dockerfile`
-- `docker/mysql/Dockerfile`
-- `docker-compose.registry.yml`
-- `docker-build-images.sh`
-- `docker-push-images.sh`
-
-## Ubuntu 部署会做什么
-
-`install.sh` 会自动完成这些事情：
-
-- 安装基础依赖 `ca-certificates`、`curl`、`unzip`
-- 安装 `Docker`
-- 安装 `docker compose plugin`
-- 创建或读取 `.env`
-- 显示默认端口和访问地址
-- 询问你是否修改端口和 `PUBLIC_BASE_URL`
-- 自动解压并修补前端静态包
-- 拉取镜像并启动容器
-
-`bootstrap-from-github.sh` 额外会自动完成：
+脚本会自动完成：
 
 - 安装 `git`
 - 安装 `git-lfs`
-- 仓库不存在时执行 `clone`
-- 仓库已存在时执行 `fetch + pull`
-- 自动拉取 `Git LFS` 大文件
-- 自动进入部署目录并执行 `install.sh`
+- 下载仓库
+- 安装 `Docker`
+- 创建 `.env`
+- 提示你填写端口和 `PUBLIC_BASE_URL`
+- 自动启动全部容器
 
-## 纯 image 部署说明
+如果后续要改端口或外网入口，执行：
 
-如果你的目标是：
+```bash
+cd /opt/teachingopen-source
+./reconfigure.sh
+```
 
-- 不用 GitHub 地址
-- 不用先 clone 整个仓库
-- 直接在群晖或 Ubuntu 里贴 `compose`
-- 全部通过 `image:` 拉取
+如果 Docker Hub 拉镜像失败，先执行：
 
-那么正确做法不是把整个系统硬塞进一个容器，而是：
+```bash
+cd /opt/teachingopen-source
+sudo ./configure-docker-mirror.sh
+```
 
-- `TeachingOpen app` 用你自己的镜像
-- `TeachingOpen web` 用你自己的镜像
-- 初始化过的 `MySQL` 用你自己的镜像
-- `Redis` 继续用官方镜像
-- `kkFileView` 继续用官方镜像
+默认访问地址：
 
-也就是说，可以做到“纯 image 部署”，但**不建议强行做成单镜像单容器**。
+```text
+http://服务器IP:8080
+```
 
-原因很简单：
+## 方式 2：群晖 NAS 容器镜像部署
 
-- `TeachingOpen 2.8` 后端硬依赖 `MySQL`
-- 同时还依赖 `Redis`
-- 文件预览依赖 `kkFileView`
-- 前端静态资源和后端也不是同一个运行进程
+这套方式和 Ubuntu 是分开的。
 
-所以更稳妥的方式是“多服务 compose，全都写 `image:`”，而不是“一个超级大镜像包打一切”。
+群晖这边不是跑一键脚本，而是直接在 `Container Manager` 里面新建项目，然后粘贴 `docker-compose.yml`。
 
-### 纯 image compose 示例
+### 第 1 步：准备文件夹
+
+打开群晖 `File Station`，创建目录：
+
+```text
+/docker/teachingopen
+```
+
+### 第 2 步：创建项目
+
+1. 打开 `Container Manager`
+2. 进入 `项目`
+3. 点击 `新增`
+4. 项目名称填写：
+
+```text
+teachingopen
+```
+
+5. 路径选择：
+
+```text
+/docker/teachingopen
+```
+
+6. 来源选择：
+
+```text
+创建 docker-compose.yml
+```
+
+### 第 3 步：直接复制下面这段内容
+
+把下面整段内容直接粘贴进去，然后只改你自己的镜像地址、群晖 IP 和端口即可：
 
 ```yaml
 services:
@@ -183,8 +123,8 @@ services:
     environment:
       TZ: Asia/Shanghai
       JAVA_OPTS: -Xms512m -Xmx2048m -Dfile.encoding=UTF-8
-      TEACHING_DOMAIN: http://192.168.1.50:8080
-      FILE_VIEW_DOMAIN: http://192.168.1.50:8080/preview
+      TEACHING_DOMAIN: http://192.168.1.100:8080
+      FILE_VIEW_DOMAIN: http://192.168.1.100:8080/preview
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: teachingopen
@@ -218,38 +158,93 @@ services:
       - "8080:80"
 ```
 
-正式文件见：
+### 第 4 步：保存并启动
 
-- `docker-compose.registry.yml`
+粘贴完之后，重点只改这几处：
 
-## 如何发布你自己的 image
+- `yourdockerhub/teachingopen-mysql:2.8.0`
+- `yourdockerhub/teachingopen-app:2.8.0`
+- `yourdockerhub/teachingopen-web:2.8.0`
+- `http://192.168.1.100:8080`
+- `"8080:80"`
+- 三个密码
 
-### 1. 本地构建
+然后直接点保存、启动即可。
+
+### 第 5 步：访问
+
+浏览器访问：
+
+```text
+http://群晖IP:8080
+```
+
+默认测试账号：
+
+- `admin`
+- `teacher`
+- `student`
+
+默认密码：
+
+- `123456`
+
+## 一个前提要说清楚
+
+群晖这种“直接 `image:` 部署”的前提是：
+
+你自己的这三个镜像必须已经先发布到镜像仓库：
+
+- `teachingopen-mysql`
+- `teachingopen-app`
+- `teachingopen-web`
+
+如果镜像还没有推送到 Docker Hub 或其它镜像仓库，那么群晖这条方式还不能直接拉起。
+
+## 如果你想自己发布镜像
+
+仓库里已经准备好了镜像构建文件：
+
+- `docker/app/Dockerfile`
+- `docker/web/Dockerfile`
+- `docker/mysql/Dockerfile`
+- `docker-build-images.sh`
+- `docker-push-images.sh`
+
+本地构建：
 
 ```bash
 IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-build-images.sh
 ```
 
-### 2. 登录镜像仓库
+登录并推送：
 
 ```bash
 docker login
-```
-
-### 3. 推送镜像
-
-```bash
 IMAGE_NAMESPACE=yourdockerhub IMAGE_TAG=2.8.0 ./docker-push-images.sh
 ```
 
-### 4. 之后部署时就不再需要 GitHub
+## Ubuntu 部署会做什么
 
-你后续只需要：
+`install.sh` 会自动完成这些事情：
 
-- 把 `docker-compose.registry.yml` 内容贴到群晖项目里
-- 或复制到 Ubuntu 上直接 `docker compose up -d`
+- 安装基础依赖 `ca-certificates`、`curl`、`unzip`
+- 安装 `Docker`
+- 安装 `docker compose plugin`
+- 创建或读取 `.env`
+- 显示默认端口和访问地址
+- 询问你是否修改端口和 `PUBLIC_BASE_URL`
+- 自动解压并修补前端静态包
+- 拉取镜像并启动容器
 
-整个部署过程都不再依赖 GitHub 地址。
+`bootstrap-from-github.sh` 额外会自动完成：
+
+- 安装 `git`
+- 安装 `git-lfs`
+- 仓库不存在时执行 `clone`
+- 仓库已存在时执行 `fetch + pull`
+- 自动拉取 `Git LFS` 大文件
+- 自动进入部署目录并执行 `install.sh`
 
 ## 部署架构
 
@@ -293,9 +288,9 @@ Ubuntu 方案会启动以下服务：
 ├─ data/                       持久化数据目录
 ├─ runtime/web-root/           解压后的前端静态文件
 ├─ .env.example                Ubuntu 环境变量示例
-├─ .env.synology.example       群晖环境变量示例
+├─ .env.synology.example       群晖镜像部署环境变量示例
 ├─ docker-compose.yml          Ubuntu / 通用 Compose
-├─ docker-compose.synology.yml 群晖项目式 Compose
+├─ docker-compose.synology.yml 群晖项目式镜像 Compose
 ├─ install.sh                  Ubuntu 首次部署脚本
 ├─ reconfigure.sh              修改端口 / PUBLIC_BASE_URL
 ├─ configure-docker-mirror.sh  配置 Docker 镜像加速

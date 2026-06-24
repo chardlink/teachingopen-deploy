@@ -1,117 +1,16 @@
 # TeachingOpen 2.8 群晖 NAS 镜像部署
 
-> 群晖方案和 Ubuntu 方案是分开的。  
-> `Ubuntu` 继续走一键脚本部署；`群晖 NAS` 走纯 `image:` 容器部署，不依赖 GitHub 拉源码。
+群晖这边只保留一种方式：直接在 `Container Manager` 里新建项目，然后粘贴 `docker-compose.yml` 启动。
 
-## 这是什么
+## 第 1 步：准备文件夹
 
-这份说明只针对群晖 `Container Manager`。
-
-目标是做到和你截图里的方式一致：
-
-- 在群晖里新建一个项目
-- 贴入 `docker-compose.yml`
-- `image:` 直接拉镜像启动
-- 数据通过本地目录挂载持久化
-
-也就是说，群晖方案的定位是：
-
-- 不要求在 NAS 里先下载整个源码仓库
-- 不依赖 `install.sh`
-- 不依赖 GitHub 一键脚本
-- 直接走镜像部署
-
-## 适用前提
-
-- 群晖已安装 `Container Manager`
-- 建议 `x86_64` 机型
-- 建议内存至少 `4GB`，更稳妥是 `8GB`
-- 你已经把自己的 `TeachingOpen` 镜像发布到了镜像仓库
-
-目前群晖镜像部署使用这些镜像：
-
-- `APP_IMAGE`
-- `WEB_IMAGE`
-- `MYSQL_IMAGE`
-- `redis:6.2-alpine`
-- `keking/kkfileview:latest`
-
-## 和 Ubuntu 的区别
-
-### Ubuntu
-
-- 走 `install.sh`
-- 支持一键脚本部署
-- 可从 GitHub 拉取源码后自动部署
-
-### 群晖 NAS
-
-- 不走 `install.sh`
-- 不走 GitHub 拉源码
-- 直接用 `docker-compose.synology.yml`
-- 所有核心服务都通过 `image:` 拉起
-
-这两种方式是故意分开的，不是同一套流程。
-
-## 准备文件夹
-
-打开群晖 `File Station`，在共享目录下创建类似目录：
+打开群晖 `File Station`，创建目录：
 
 ```text
 /docker/teachingopen
 ```
 
-然后在其中创建：
-
-```text
-/docker/teachingopen/data
-```
-
-后续容器数据会保存在这里。
-
-## 准备 .env
-
-把仓库里的：
-
-```text
-.env.synology.example
-```
-
-复制一份并重命名为：
-
-```text
-.env
-```
-
-按需修改：
-
-- `WEB_PORT`
-- `PUBLIC_BASE_URL`
-- `MYSQL_ROOT_PASSWORD`
-- `MYSQL_PASSWORD`
-- `REDIS_PASSWORD`
-- `APP_IMAGE`
-- `WEB_IMAGE`
-- `MYSQL_IMAGE`
-
-示例：
-
-```env
-TZ=Asia/Shanghai
-WEB_PORT=8080
-PUBLIC_BASE_URL=http://192.168.1.100:8080
-MYSQL_ROOT_PASSWORD=change-this-root-password
-MYSQL_DATABASE=teachingopen
-MYSQL_USER=teachingopen
-MYSQL_PASSWORD=change-this-app-password
-REDIS_PASSWORD=change-this-redis-password
-JAVA_OPTS="-Xms512m -Xmx2048m -Dfile.encoding=UTF-8"
-APP_IMAGE=yourdockerhub/teachingopen-app:2.8.0
-WEB_IMAGE=yourdockerhub/teachingopen-web:2.8.0
-MYSQL_IMAGE=yourdockerhub/teachingopen-mysql:2.8.0
-```
-
-## 创建项目
+## 第 2 步：创建项目
 
 1. 打开 `Container Manager`
 2. 进入 `项目`
@@ -134,41 +33,101 @@ teachingopen
 创建 docker-compose.yml
 ```
 
-7. 将 `docker-compose.synology.yml` 的内容粘贴进去
-8. 确认创建并启动
+## 第 3 步：直接粘贴下面这段
 
-## compose 示例
-
-群晖部署的核心形式就是你要的这种：
+把下面整段内容直接粘贴进去，然后改你自己的镜像地址、群晖 IP、端口和密码：
 
 ```yaml
 services:
+  mysql:
+    image: yourdockerhub/teachingopen-mysql:2.8.0
+    container_name: teachingopen-mysql
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: change-this-root-password
+      MYSQL_DATABASE: teachingopen
+      MYSQL_USER: teachingopen
+      MYSQL_PASSWORD: change-this-app-password
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: teachingopen-redis
+    restart: unless-stopped
+    command: >
+      sh -c 'redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}" --save 60 1'
+    environment:
+      TZ: Asia/Shanghai
+      REDIS_PASSWORD: change-this-redis-password
+    volumes:
+      - ./data/redis:/data
+
   app:
     image: yourdockerhub/teachingopen-app:2.8.0
+    container_name: teachingopen-app
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      TZ: Asia/Shanghai
+      JAVA_OPTS: -Xms512m -Xmx2048m -Dfile.encoding=UTF-8
+      TEACHING_DOMAIN: http://192.168.1.100:8080
+      FILE_VIEW_DOMAIN: http://192.168.1.100:8080/preview
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: teachingopen
+      DB_USER: teachingopen
+      DB_PASS: change-this-app-password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: change-this-redis-password
+    volumes:
+      - ./data/uploads:/data/uploads
+      - ./data/webapp:/data/webapp
+      - ./data/logs:/data/logs
+
+  kkfileview:
+    image: keking/kkfileview:latest
+    container_name: teachingopen-kkfileview
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/kkfileview:/opt/kkFileView
 
   nginx:
     image: yourdockerhub/teachingopen-web:2.8.0
-
-  mysql:
-    image: yourdockerhub/teachingopen-mysql:2.8.0
+    container_name: teachingopen-nginx
+    restart: unless-stopped
+    depends_on:
+      - app
+      - kkfileview
+    ports:
+      - "8080:80"
 ```
 
-正式完整文件见：
+## 第 4 步：保存并启动
 
-- `docker-compose.synology.yml`
+粘贴完之后，重点只改这几处：
 
-## 启动后访问
+- `yourdockerhub/teachingopen-mysql:2.8.0`
+- `yourdockerhub/teachingopen-app:2.8.0`
+- `yourdockerhub/teachingopen-web:2.8.0`
+- `http://192.168.1.100:8080`
+- `"8080:80"`
+- 三个密码
+
+然后直接点保存、启动即可。
+
+## 第 5 步：访问
 
 浏览器访问：
 
 ```text
-http://群晖IP:你设置的WEB_PORT
-```
-
-例如：
-
-```text
-http://192.168.1.100:8080
+http://群晖IP:8080
 ```
 
 默认测试账号：
@@ -181,42 +140,12 @@ http://192.168.1.100:8080
 
 - `123456`
 
-## 首次启动说明
+## 一个前提
 
-第一次启动可能需要几分钟，因为：
-
-- MySQL 需要初始化
-- SQL 需要导入
-- 镜像需要首次拉取
-
-如果刚启动时打不开，优先查看：
+这种方式要成立，前提是你自己的这三个镜像已经先推到镜像仓库：
 
 - `teachingopen-mysql`
 - `teachingopen-app`
-- `teachingopen-nginx`
-- `teachingopen-kkfileview`
+- `teachingopen-web`
 
-## 外网访问说明
-
-如果你后面做路由器端口映射：
-
-- 群晖本机端口可以保持 `8080`
-- 路由器可以映射成别的外网端口，例如 `28080`
-
-例如：
-
-- 内网：`http://192.168.1.100:8080`
-- 外网：`http://公网IP:28080`
-
-如果你希望系统默认对外地址也跟着外网走，请同步修改 `.env` 中的：
-
-```env
-PUBLIC_BASE_URL=http://你的公网IP或域名:28080
-```
-
-## 注意事项
-
-- 群晖方案默认就是镜像部署，不是源码部署
-- 如果你还没有把 `TeachingOpen` 的三个自定义镜像推到 Docker Hub 或其它镜像仓库，这个方案还不能直接启动
-- 如果群晖是 `ARM` 机型，个别镜像可能存在兼容性风险，优先建议 `x86_64`
-- 如果需要像截图里那样直接 `image: xxx` 拉取，关键前提就是这些镜像地址必须真实存在
+如果镜像还没有发布，那么群晖这里就还不能直接拉起。

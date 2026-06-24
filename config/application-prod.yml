@@ -15,6 +15,11 @@ spring:
 
 justauth:
   enabled: false
+  type:
+    GITHUB:
+      client-id: placeholder
+      client-secret: placeholder
+      redirect-uri: placeholder
 
 ueip: false
 

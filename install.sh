@@ -48,7 +48,7 @@ apt_update() {
   fi
 
   if [[ -f /etc/apt/sources.list.d/docker.list ]]; then
-    warn "apt-get update 失败，尝试移除残留的 Docker 官方源后重试。"
+    warn "apt-get update 失败，尝试移除残留的 Docker CE 软件源后重试。"
     cleanup_official_docker_repo
     retry 3 5 "${SUDO[@]}" apt-get update
     return 0
@@ -281,14 +281,14 @@ install_docker_from_official_repo() {
     return 1
   fi
 
-  log "Ubuntu 软件源安装 Docker 失败，正在尝试 Docker 官方源..."
+  log "Ubuntu 软件源安装 Docker 失败，正在尝试清华 TUNA 的 Docker CE 软件源..."
   "${SUDO[@]}" install -m 0755 -d /etc/apt/keyrings
   temp_keyring="$(mktemp)"
   curl_download "https://download.docker.com/linux/ubuntu/gpg" "$temp_keyring"
   "${SUDO[@]}" mv "$temp_keyring" /etc/apt/keyrings/docker.asc
   "${SUDO[@]}" chmod a+r /etc/apt/keyrings/docker.asc
 
-  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://mirrors.tuna.tsinghua.edu.cn/docker-ce/linux/ubuntu %s stable\n' \
     "$arch" "$version_codename" | "${SUDO[@]}" tee /etc/apt/sources.list.d/docker.list >/dev/null
 
   apt_update
@@ -361,10 +361,10 @@ ensure_docker() {
     if install_docker_from_ubuntu_repo; then
       log "Docker 已通过 Ubuntu 软件源安装完成。"
     elif install_docker_from_official_repo; then
-      log "Docker 已通过官方源安装完成。"
+      log "Docker 已通过清华 TUNA 的 Docker CE 软件源安装完成。"
     else
-      warn "Ubuntu 软件源和 Docker 官方源都没有安装成功。"
-      warn "请先检查 Ubuntu 软件源、universe 仓库以及 download.docker.com 的连通性。"
+      warn "Ubuntu 软件源和清华 TUNA 的 Docker CE 软件源都没有安装成功。"
+      warn "请先检查 Ubuntu 软件源、universe 仓库以及 mirrors.tuna.tsinghua.edu.cn 的连通性。"
       exit 1
     fi
   else

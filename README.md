@@ -44,13 +44,19 @@ sudo ./update.sh
 - 安装 `git`
 - 安装 `git-lfs`
 - 下载仓库
-- 安装 `Docker`（优先 Ubuntu 软件源，失败再尝试官方源）
+- 安装 `Docker`（优先 Ubuntu 软件源，失败再尝试清华 TUNA 的 Docker CE 软件源）
 - 创建 `.env`
 - 提示你填写端口和 `PUBLIC_BASE_URL`
 - 自动启动全部容器
 
 如果你的网络访问 `download.docker.com` 不稳定，不需要手动清理再重来。
-现在脚本会先尝试 Ubuntu 自带软件源安装 Docker；只有 Ubuntu 源不满足时，才会再尝试 Docker 官方源。
+现在脚本会先尝试 Ubuntu 自带软件源安装 Docker；只有 Ubuntu 源不满足时，才会再尝试清华 TUNA 的 Docker CE 软件源。
+
+注意：
+
+- 清华 TUNA 这里解决的是 `Docker` 软件包安装来源
+- 真正的容器镜像拉取，不是走 TUNA 的 `docker-ce` 软件源
+- 所以项目里的容器镜像默认已经改成 `m.daocloud.io/docker.io/...` 这一类镜像加速入口，避免继续直连 `registry-1.docker.io`
 
 如果后续要改端口或外网入口，执行：
 

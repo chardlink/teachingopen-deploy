@@ -526,6 +526,23 @@ start_stack() {
   return 1
 }
 
+prepare_ipv4_preference() {
+  # 如果系统 IPv6 已禁用则跳过（幂等）
+  if [[ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)" == "1" ]]; then
+    log "系统 IPv6 已禁用，跳过网络预配置。"
+    return 0
+  fi
+
+  if [[ ! -f "$ROOT_DIR/configure-docker-mirror.sh" ]]; then
+    return 0
+  fi
+
+  echo
+  echo "检测到系统 IPv6 尚未禁用。"
+  echo "正在预先禁用 IPv6 并配置 /etc/hosts，避免 Docker 走 IPv6 连接 Docker Hub 被重置..."
+  "${SUDO[@]}" env NONINTERACTIVE=yes PREFER_IPV4=yes bash "$ROOT_DIR/configure-docker-mirror.sh"
+}
+
 main() {
   ensure_base_packages
   ensure_docker
@@ -544,6 +561,7 @@ main() {
   fi
 
   bash "$ROOT_DIR/scripts/prepare-web.sh"
+  prepare_ipv4_preference
   start_stack
 
   echo

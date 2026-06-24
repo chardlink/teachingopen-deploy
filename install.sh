@@ -461,10 +461,10 @@ start_stack() {
       echo "常见原因："
       echo "  1. Docker Hub 网络访问不稳定"
       echo "  2. Docker daemon 没有配置镜像加速或代理"
-      echo "  3. 到 registry-1.docker.io 的网络连接被重置"
+      echo "  3. Docker 正在走 IPv6 访问 registry-1.docker.io，但连接被重置"
       echo
       echo "建议先执行："
-      echo "  cd $ROOT_DIR && sudo ./configure-docker-mirror.sh"
+      echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
       echo
       echo "配置完成后，再重新执行："
       echo "  cd $ROOT_DIR && sudo ./install.sh"

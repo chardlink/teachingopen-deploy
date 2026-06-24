@@ -63,7 +63,7 @@ cd /opt/teachingopen-source
 
 ```bash
 cd /opt/teachingopen-source
-sudo ./configure-docker-mirror.sh
+sudo PREFER_IPV4=yes ./configure-docker-mirror.sh
 ```
 
 默认访问地址：

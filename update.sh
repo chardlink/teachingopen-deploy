@@ -84,8 +84,8 @@ main() {
   if ! docker_compose pull; then
     echo
     echo "镜像拉取失败。"
-    echo "如果是 Docker Hub 网络问题，请先执行："
-    echo "  cd $ROOT_DIR && sudo ./configure-docker-mirror.sh"
+    echo "如果是 Docker Hub 网络问题，尤其是 IPv6 被重置，请先执行："
+    echo "  cd $ROOT_DIR && sudo PREFER_IPV4=yes ./configure-docker-mirror.sh"
     echo "然后再重新执行："
     echo "  cd $ROOT_DIR && sudo ./update.sh"
     exit 1

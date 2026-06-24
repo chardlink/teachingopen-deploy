@@ -67,7 +67,7 @@ configure_docker_ipv4_retry() {
 }
 
 docker_compose_pull_with_retry() {
-  local pull_log
+  local pull_log attempt
 
   pull_log="$(mktemp)"
 
@@ -79,16 +79,33 @@ docker_compose_pull_with_retry() {
 
   cat "$pull_log"
 
+  # IPv6/网络问题：先尝试切换 IPv4
   if docker_pull_failure_needs_ipv4_retry "$pull_log"; then
     echo
-    if configure_docker_ipv4_retry && docker_compose pull >"$pull_log" 2>&1; then
+    configure_docker_ipv4_retry || true
+    if docker_compose pull >"$pull_log" 2>&1; then
       cat "$pull_log"
       rm -f "$pull_log"
       return 0
     fi
-
     cat "$pull_log"
   fi
+
+  # 网络超时/不稳定：额外重试 3 次，每次等待 20 秒
+  for attempt in 1 2 3; do
+    if ! grep -Eiq 'TLS handshake timeout|i/o timeout|connection reset by peer|read: connection reset' "$pull_log"; then
+      break
+    fi
+    echo
+    echo "网络不稳定（超时/重置），${20} 秒后第 ${attempt}/3 次重试..."
+    sleep 20
+    if docker_compose pull >"$pull_log" 2>&1; then
+      cat "$pull_log"
+      rm -f "$pull_log"
+      return 0
+    fi
+    cat "$pull_log"
+  done
 
   rm -f "$pull_log"
   return 1

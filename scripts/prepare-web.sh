@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB_ZIP="$ROOT_DIR/assets/teaching-open-web-2.8.0.zip"
+OVERLAY_DIR="$ROOT_DIR/assets/web-overlay"
 WEB_ROOT="$ROOT_DIR/runtime/web-root"
 INDEX_FILE="$WEB_ROOT/index.html"
 
@@ -19,6 +20,10 @@ fi
 mkdir -p "$WEB_ROOT"
 find "$WEB_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 unzip -oq "$WEB_ZIP" -d "$WEB_ROOT"
+
+if [[ -d "$OVERLAY_DIR" ]]; then
+  cp -R "$OVERLAY_DIR"/. "$WEB_ROOT"/
+fi
 
 if [[ ! -f "$INDEX_FILE" ]]; then
   echo "Frontend extraction failed: $INDEX_FILE not found" >&2

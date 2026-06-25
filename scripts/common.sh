@@ -204,17 +204,16 @@ docker_compose_pull_with_retry() {
     return 0
   fi
 
-  cat "$pull_log"
-
   if docker_pull_failure_needs_ipv4_retry "$pull_log"; then
     echo
+    echo "首次拉取镜像失败，正在自动切换 IPv4 并重试..."
     configure_docker_ipv4_retry || true
     if docker_compose pull >"$pull_log" 2>&1; then
+      echo "镜像拉取已恢复，前面的网络错误已自动处理。"
       cat "$pull_log"
       rm -f "$pull_log"
       return 0
     fi
-    cat "$pull_log"
   fi
 
   for attempt in 1 2 3; do
@@ -225,13 +224,14 @@ docker_compose_pull_with_retry() {
     echo "网络仍不稳定，20 秒后进行第 ${attempt}/3 次重试..."
     sleep 20
     if docker_compose pull >"$pull_log" 2>&1; then
+      echo "镜像拉取已恢复，前面的网络错误已自动处理。"
       cat "$pull_log"
       rm -f "$pull_log"
       return 0
     fi
-    cat "$pull_log"
   done
 
+  cat "$pull_log"
   rm -f "$pull_log"
   return 1
 }

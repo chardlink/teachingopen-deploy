@@ -45,6 +45,21 @@ resolve_branch() {
   printf '%s' "$BRANCH"
 }
 
+git_lfs_pull_quiet_warning() {
+  local lfs_log
+
+  lfs_log="$(mktemp)"
+  if git -C "$ROOT_DIR" lfs pull >"$lfs_log" 2>&1; then
+    grep -Fv 'appears to use backslashes as path separators' "$lfs_log" || true
+    rm -f "$lfs_log"
+    return 0
+  fi
+
+  cat "$lfs_log" >&2
+  rm -f "$lfs_log"
+  return 1
+}
+
 main() {
   local target_branch
 
@@ -75,7 +90,7 @@ main() {
 
   git -C "$ROOT_DIR" reset --hard "origin/$target_branch"
   git -C "$ROOT_DIR" lfs install --local
-  git -C "$ROOT_DIR" lfs pull
+  git_lfs_pull_quiet_warning
 
   echo "重新准备前端静态文件..."
   bash "$ROOT_DIR/scripts/prepare-web.sh"

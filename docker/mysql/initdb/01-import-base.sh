@@ -19,3 +19,9 @@ mysql --default-character-set=utf8mb4 \
   -uroot \
   -p"${MYSQL_ROOT_PASSWORD}" \
   "${MYSQL_DATABASE}" < "$clean_sql"
+
+mysql --default-character-set=utf8mb4 \
+  -uroot \
+  -p"${MYSQL_ROOT_PASSWORD}" \
+  "${MYSQL_DATABASE}" \
+  -e "UPDATE sys_file SET file_location = 1 WHERE file_location = 2;"

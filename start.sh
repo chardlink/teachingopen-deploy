@@ -25,3 +25,5 @@ case "$STACK_MODE" in
     exit 1
     ;;
 esac
+
+normalize_sys_file_location_for_local_mode

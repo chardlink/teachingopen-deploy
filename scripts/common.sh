@@ -19,7 +19,7 @@ fi
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1" >&2
+    echo "缺少必须命令: $1" >&2
     exit 1
   fi
 }
@@ -87,7 +87,7 @@ docker_compose_up_compat() {
 
 docker_compose_recreate_compat() {
   if docker_compose_is_legacy_v1; then
-    echo "检测到旧版 docker-compose v1，不再使用 force-recreate，改为兼容模式（down + up）..."
+    echo "检测到旧版 docker-compose v1，使用兼容模式重新创建服务（down + up）..."
     docker_compose down --remove-orphans || true
     docker_compose up -d
     return 0
@@ -96,10 +96,37 @@ docker_compose_recreate_compat() {
   docker_compose up -d --force-recreate --remove-orphans
 }
 
+normalize_sys_file_location_for_local_mode() {
+  local attempt
+
+  if [[ ! -f "$ROOT_DIR/config/application-prod.yml" ]]; then
+    return 0
+  fi
+
+  if ! grep -Eq '^[[:space:]]*uploadType:[[:space:]]*local([[:space:]]|$)' "$ROOT_DIR/config/application-prod.yml"; then
+    return 0
+  fi
+
+  echo
+  echo "正在修正本地部署中的历史 sys_file 存储位置..."
+
+  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if docker_compose exec -T mysql sh -c \
+      'exec mysql --default-character-set=utf8mb4 -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "UPDATE sys_file SET file_location = 1 WHERE file_location = 2;"' \
+      >/dev/null 2>&1; then
+      echo "历史 sys_file 存储位置已修正完成。"
+      return 0
+    fi
+    sleep 5
+  done
+
+  echo "暂时未能自动修正 sys_file.file_location，稍后可重新执行 ./start.sh 或 ./update.sh 再试。" >&2
+  return 0
+}
+
 docker_pull_failure_needs_ipv4_retry() {
   local log_file="$1"
 
-  # 403 Forbidden 是镜像加速站权限问题，不是网络问题，不应触发 IPv4 重试
   if grep -Eiq '403 Forbidden' "$log_file"; then
     return 1
   fi
@@ -115,12 +142,13 @@ configure_docker_ipv4_retry() {
     return 1
   fi
 
-  echo "检测到 Docker Hub 拉取疑似走 IPv6 被重置，正在自动切换为优先 IPv4 并重试一次..."
+  echo "检测到 Docker Hub 拉取疑似走 IPv6 被重置，正在自动切换为优先 IPv4 并重试..."
   "${SUDO[@]}" env NONINTERACTIVE=yes PREFER_IPV4=yes bash "$ROOT_DIR/configure-docker-mirror.sh"
 }
 
 docker_compose_pull_with_retry() {
-  local pull_log attempt
+  local pull_log
+  local attempt
 
   pull_log="$(mktemp)"
 
@@ -132,7 +160,6 @@ docker_compose_pull_with_retry() {
 
   cat "$pull_log"
 
-  # IPv6/网络问题：先尝试切换 IPv4
   if docker_pull_failure_needs_ipv4_retry "$pull_log"; then
     echo
     configure_docker_ipv4_retry || true
@@ -144,13 +171,12 @@ docker_compose_pull_with_retry() {
     cat "$pull_log"
   fi
 
-  # 网络超时/不稳定：额外重试 3 次，每次等待 20 秒
   for attempt in 1 2 3; do
     if ! grep -Eiq 'TLS handshake timeout|i/o timeout|connection reset by peer|read: connection reset' "$pull_log"; then
       break
     fi
     echo
-    echo "网络不稳定（超时/重置），${20} 秒后第 ${attempt}/3 次重试..."
+    echo "网络仍不稳定，20 秒后进行第 ${attempt}/3 次重试..."
     sleep 20
     if docker_compose pull >"$pull_log" 2>&1; then
       cat "$pull_log"

@@ -92,7 +92,7 @@ main() {
   fi
 
   echo "重建并启动服务..."
-  docker_compose up -d --force-recreate --remove-orphans
+  SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh" refresh
 
   echo
   echo "更新完成。"

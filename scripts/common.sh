@@ -43,6 +43,59 @@ docker_compose() {
   )
 }
 
+docker_compose_mode() {
+  need_cmd docker
+
+  if "${SUDO[@]}" docker compose version >/dev/null 2>&1; then
+    printf '%s' "v2"
+    return 0
+  fi
+
+  if command -v docker-compose >/dev/null 2>&1; then
+    local version
+    version="$("${SUDO[@]}" docker-compose version --short 2>/dev/null || true)"
+    if printf '%s' "$version" | grep -q '^1\.'; then
+      printf '%s' "v1"
+    else
+      printf '%s' "standalone"
+    fi
+    return 0
+  fi
+
+  echo "未检测到 docker compose 或 docker-compose，请先执行 ./install.sh" >&2
+  exit 1
+}
+
+docker_compose_is_legacy_v1() {
+  [[ "$(docker_compose_mode)" == "v1" ]]
+}
+
+docker_compose_has_existing_containers() {
+  local ids
+  ids="$(docker_compose ps -aq 2>/dev/null || true)"
+  [[ -n "${ids//[$'\r\n\t ']}" ]]
+}
+
+docker_compose_up_compat() {
+  if docker_compose_is_legacy_v1 && docker_compose_has_existing_containers; then
+    echo "检测到旧版 docker-compose v1，使用兼容模式重建服务（down + up）..."
+    docker_compose down --remove-orphans || true
+  fi
+
+  docker_compose up -d "$@"
+}
+
+docker_compose_recreate_compat() {
+  if docker_compose_is_legacy_v1; then
+    echo "检测到旧版 docker-compose v1，不再使用 force-recreate，改为兼容模式（down + up）..."
+    docker_compose down --remove-orphans || true
+    docker_compose up -d
+    return 0
+  fi
+
+  docker_compose up -d --force-recreate --remove-orphans
+}
+
 docker_pull_failure_needs_ipv4_retry() {
   local log_file="$1"
 

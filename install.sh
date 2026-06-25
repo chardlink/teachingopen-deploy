@@ -312,12 +312,12 @@ install_docker_from_ubuntu_repo() {
     return 1
   fi
 
-  if apt_has_install_candidate docker-compose; then
-    compose_package="docker-compose"
-  elif apt_has_install_candidate docker-compose-plugin; then
+  if apt_has_install_candidate docker-compose-plugin; then
     compose_package="docker-compose-plugin"
   elif apt_has_install_candidate docker-compose-v2; then
     compose_package="docker-compose-v2"
+  elif apt_has_install_candidate docker-compose; then
+    compose_package="docker-compose"
   fi
 
   if [[ -n "$compose_package" ]]; then
@@ -336,15 +336,15 @@ ensure_compose() {
   ensure_universe_repository
   apt_update
 
-  if apt_has_install_candidate docker-compose && apt_install_once docker-compose; then
-    return 0
-  fi
-
   if apt_has_install_candidate docker-compose-plugin && apt_install_once docker-compose-plugin; then
     return 0
   fi
 
   if apt_has_install_candidate docker-compose-v2 && apt_install_once docker-compose-v2; then
+    return 0
+  fi
+
+  if apt_has_install_candidate docker-compose && apt_install_once docker-compose; then
     return 0
   fi
 
@@ -484,7 +484,7 @@ start_stack() {
   if docker_compose_cmd pull >"$pull_log" 2>&1; then
     cat "$pull_log"
     rm -f "$pull_log"
-    docker_compose_cmd up -d
+    SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
     return 0
   fi
 
@@ -497,7 +497,7 @@ start_stack() {
     if docker_compose_cmd pull >"$pull_log" 2>&1; then
       cat "$pull_log"
       rm -f "$pull_log"
-      docker_compose_cmd up -d
+      SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
       return 0
     fi
     cat "$pull_log"
@@ -514,7 +514,7 @@ start_stack() {
     if docker_compose_cmd pull >"$pull_log" 2>&1; then
       cat "$pull_log"
       rm -f "$pull_log"
-      docker_compose_cmd up -d
+      SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
       return 0
     fi
     cat "$pull_log"

@@ -734,6 +734,34 @@ backups/repo-local-changes/时间戳/
 然后自动丢弃这些仓库脚本改动，再继续同步远端代码。
 所以即使上一次安装失败了，也不会再卡在 `git pull`。
 
+如果你看到类似下面的报错：
+
+```text
+KeyError: 'ContainerConfig'
+```
+
+这通常不是数据库坏了，也不是必须删掉 `data/` 重装，而是服务器上正在使用旧版 `docker-compose v1.29.x`，它和较新的 Docker Engine 在“重建容器”时不兼容。
+
+现在仓库里的脚本已经做了两层处理：
+
+- 新安装时优先安装 `docker compose` v2 插件
+- 如果系统上暂时只有旧版 `docker-compose` v1，也会自动改走兼容模式：先 `down`，再 `up`
+
+如果你的机器之前已经部署过旧版本脚本，先把仓库更新到最新，然后重新执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./update.sh
+```
+
+如果你想手动先清掉旧容器再启动，也可以执行：
+
+```bash
+cd /opt/teachingopen-source
+sudo ./stop.sh
+sudo ./start.sh
+```
+
 ## 后续升级如何做
 
 后续如果你已经部署成功，只想把这套部署仓库更新到最新版本，执行：
@@ -752,6 +780,11 @@ sudo ./update.sh
 - 自动拉取镜像
 - 如果 Docker Hub 因 IPv6 被重置导致拉镜像失败，自动切换为优先 IPv4 并重试一次
 - 自动重建并启动容器
+
+补充：
+
+- `install.sh` 和 `update.sh` 现在最终都复用 `start.sh` 这一套起服务逻辑
+- 这样首次安装、普通启动、后续更新，走的是同一套容器启动引擎
 
 更新完成后，可执行：
 

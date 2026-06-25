@@ -62,6 +62,8 @@ git_lfs_pull_quiet_warning() {
 
 main() {
   local target_branch
+  local before_rev
+  local after_rev
 
   if [[ ! -d "$ROOT_DIR/.git" ]]; then
     echo "当前目录不是 Git 仓库：$ROOT_DIR" >&2
@@ -77,6 +79,7 @@ main() {
   need_cmd docker
 
   target_branch="$(resolve_branch)"
+  before_rev="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 
   echo "开始更新仓库分支：$target_branch"
   git -C "$ROOT_DIR" fetch --all --tags
@@ -89,6 +92,12 @@ main() {
   fi
 
   git -C "$ROOT_DIR" reset --hard "origin/$target_branch"
+  after_rev="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  if [[ "$before_rev" != "$after_rev" && "${TEACHINGOPEN_UPDATE_REEXEC:-0}" != "1" ]]; then
+    echo "已拉取到新的更新脚本，正在自动重启 update 引擎..."
+    exec env TEACHINGOPEN_UPDATE_REEXEC=1 bash "$ROOT_DIR/update.sh" "$target_branch"
+  fi
+
   git -C "$ROOT_DIR" lfs install --local
   git_lfs_pull_quiet_warning
 

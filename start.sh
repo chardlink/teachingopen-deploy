@@ -12,6 +12,8 @@ fi
 # shellcheck disable=SC1091
 source "$ROOT_DIR/scripts/common.sh"
 
+prepare_default_upload_assets
+
 case "$STACK_MODE" in
   up|start|"")
     docker_compose_up_compat
@@ -27,3 +29,4 @@ case "$STACK_MODE" in
 esac
 
 normalize_sys_file_location_for_local_mode
+normalize_default_user_avatars_for_local_mode

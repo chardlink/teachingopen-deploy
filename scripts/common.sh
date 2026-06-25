@@ -96,6 +96,23 @@ docker_compose_recreate_compat() {
   docker_compose up -d --force-recreate --remove-orphans
 }
 
+prepare_default_upload_assets() {
+  local source_dir="$ROOT_DIR/assets/default-uploads"
+  local target_dir="$ROOT_DIR/data/uploads"
+  local source_file target_file
+
+  [[ -d "$source_dir" ]] || return 0
+
+  mkdir -p "$target_dir"
+
+  while IFS= read -r -d '' source_file; do
+    target_file="$target_dir/$(basename "$source_file")"
+    if [[ ! -s "$target_file" ]]; then
+      cp "$source_file" "$target_file"
+    fi
+  done < <(find "$source_dir" -maxdepth 1 -type f -print0)
+}
+
 normalize_sys_file_location_for_local_mode() {
   local attempt
 
@@ -121,6 +138,35 @@ normalize_sys_file_location_for_local_mode() {
   done
 
   echo "暂时未能自动修正 sys_file.file_location，稍后可重新执行 ./start.sh 或 ./update.sh 再试。" >&2
+  return 0
+}
+
+normalize_default_user_avatars_for_local_mode() {
+  local attempt
+  local sql="
+UPDATE sys_user
+SET avatar = '459b0970dd82460bb7292b6e7a50e2ed.png'
+WHERE username IN ('admin', 'teacher')
+  AND (avatar IS NULL OR avatar = '' OR avatar = '[]');
+"
+
+  if [[ ! -f "$ROOT_DIR/config/application-prod.yml" ]]; then
+    return 0
+  fi
+
+  if ! grep -Eq '^[[:space:]]*uploadType:[[:space:]]*local([[:space:]]|$)' "$ROOT_DIR/config/application-prod.yml"; then
+    return 0
+  fi
+
+  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if docker_compose exec -T mysql sh -c \
+      "exec mysql --default-character-set=utf8mb4 -uroot -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\" -e \"$sql\"" \
+      >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+
   return 0
 }
 

@@ -15,12 +15,28 @@ PREVIEW_NEW = "window._CONFIG['onlinePreviewDomainURL'] = window._CONFIG['webURL
 
 
 def reset_output_dir() -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for child in OUTPUT_DIR.iterdir():
-        if child.is_dir():
-            shutil.rmtree(child)
+    if OUTPUT_DIR.exists():
+        if OUTPUT_DIR.is_dir():
+            shutil.rmtree(OUTPUT_DIR)
         else:
-            child.unlink()
+            OUTPUT_DIR.unlink()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def ensure_directory(path: Path) -> None:
+    current = path
+    stack = []
+
+    while current not in (current.parent, OUTPUT_DIR.parent):
+        stack.append(current)
+        current = current.parent
+        if current == OUTPUT_DIR.parent:
+            break
+
+    for directory in reversed(stack):
+        if directory.exists() and not directory.is_dir():
+            directory.unlink()
+        directory.mkdir(parents=False, exist_ok=True)
 
 
 def resolve_member_path(name: str) -> Path:
@@ -39,10 +55,12 @@ def extract_web() -> None:
 
             target = resolve_member_path(member.filename)
             if member.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
+                ensure_directory(target)
                 continue
 
-            target.parent.mkdir(parents=True, exist_ok=True)
+            ensure_directory(target.parent)
+            if target.exists() and target.is_dir():
+                shutil.rmtree(target)
             with zf.open(member) as src, target.open("wb") as dst:
                 shutil.copyfileobj(src, dst)
 

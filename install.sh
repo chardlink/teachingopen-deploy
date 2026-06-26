@@ -481,8 +481,8 @@ start_stack() {
   cd "$ROOT_DIR"
   pull_log="$(mktemp)"
 
-  if docker_compose_cmd pull >"$pull_log" 2>&1; then
-    cat "$pull_log"
+  echo "正在拉取最新容器镜像，首次可能需要几分钟，请耐心等待..."
+  if docker_compose_cmd pull 2>&1 | tee "$pull_log"; then
     rm -f "$pull_log"
     SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
     return 0
@@ -493,9 +493,9 @@ start_stack() {
     echo
     echo "首次拉取镜像失败，正在自动切换 IPv4 并重试..."
     configure_docker_ipv4_retry || true
-    if docker_compose_cmd pull >"$pull_log" 2>&1; then
+    echo "正在拉取最新容器镜像，首次可能需要几分钟，请耐心等待..."
+    if docker_compose_cmd pull 2>&1 | tee "$pull_log"; then
       echo "镜像拉取已恢复，前面的网络错误已自动处理。"
-      cat "$pull_log"
       rm -f "$pull_log"
       SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
       return 0
@@ -510,9 +510,9 @@ start_stack() {
     echo
     echo "网络不稳定（超时/重置），20 秒后第 ${attempt}/3 次重试..."
     sleep 20
-    if docker_compose_cmd pull >"$pull_log" 2>&1; then
+    echo "正在拉取最新容器镜像，首次可能需要几分钟，请耐心等待..."
+    if docker_compose_cmd pull 2>&1 | tee "$pull_log"; then
       echo "镜像拉取已恢复，前面的网络错误已自动处理。"
-      cat "$pull_log"
       rm -f "$pull_log"
       SKIP_PREPARE=yes bash "$ROOT_DIR/start.sh"
       return 0

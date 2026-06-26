@@ -143,19 +143,20 @@ normalize_sys_file_location_for_local_mode() {
 
 normalize_default_user_avatars_for_local_mode() {
   local attempt
-  local sql="
-UPDATE sys_user
-SET avatar = 'c76eda530e5b42328008c0d2268964a8.png'
-WHERE
-  avatar IS NULL
-  OR avatar = ''
-  OR avatar = '[]'
-  OR avatar IN (
-    '459b0970dd82460bb7292b6e7a50e2ed.png',
-    'c80c1b5bdd86435094e0ae37f3add6cb.png',
-    'fff10d3ca7024635a4f8e9bb512ca137.png'
-  );
-"
+  local logo_key="c76eda530e5b42328008c0d2268964a8.png"
+  local legacy_avatar_hash="0F780B3652F586B8DE322195DB4D03B6A4D1135F2691B7602C58570814D3CBD2"
+  local avatars
+  local avatar
+  local local_file
+  local file_hash
+  local escaped_avatar
+  local sql
+  local -a replace_keys=(
+    "459b0970dd82460bb7292b6e7a50e2ed.png"
+    "c80c1b5bdd86435094e0ae37f3add6cb.png"
+    "fff10d3ca7024635a4f8e9bb512ca137.png"
+  )
+  local -A seen_keys=()
 
   if [[ ! -f "$ROOT_DIR/config/application-prod.yml" ]]; then
     return 0
@@ -164,6 +165,54 @@ WHERE
   if ! grep -Eq '^[[:space:]]*uploadType:[[:space:]]*local([[:space:]]|$)' "$ROOT_DIR/config/application-prod.yml"; then
     return 0
   fi
+
+  avatars=""
+  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if avatars="$(
+      docker_compose exec -T mysql sh -c \
+        'exec mysql --default-character-set=utf8mb4 -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT DISTINCT avatar FROM sys_user WHERE avatar IS NOT NULL AND avatar <> '\'''\'' AND avatar <> '\''[]'\'';"' \
+        2>/dev/null
+    )"; then
+      break
+    fi
+    sleep 5
+  done
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    while IFS= read -r avatar; do
+      avatar="${avatar//$'\r'/}"
+      [[ -z "$avatar" || "$avatar" == "$logo_key" ]] && continue
+      [[ "$avatar" =~ ^https?:// ]] && continue
+
+      local_file="$ROOT_DIR/data/uploads/$avatar"
+      if [[ ! -f "$local_file" ]]; then
+        replace_keys+=("$avatar")
+        continue
+      fi
+
+      file_hash="$(sha256sum "$local_file" | awk '{print toupper($1)}')"
+      if [[ "$file_hash" == "$legacy_avatar_hash" ]]; then
+        replace_keys+=("$avatar")
+      fi
+    done <<< "$avatars"
+  fi
+
+  sql="
+UPDATE sys_user
+SET avatar = '$logo_key'
+WHERE avatar IS NULL
+  OR avatar = ''
+  OR avatar = '[]'"
+
+  for avatar in "${replace_keys[@]}"; do
+    [[ -n "${seen_keys[$avatar]:-}" ]] && continue
+    seen_keys["$avatar"]=1
+    escaped_avatar="$avatar"
+    sql="$sql
+  OR avatar = '$escaped_avatar'"
+  done
+
+  sql="$sql;"
 
   for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if docker_compose exec -T mysql sh -c \

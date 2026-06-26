@@ -27,6 +27,22 @@ ensure_git_lfs() {
   "${SUDO[@]}" apt-get install -y git-lfs
 }
 
+git_lfs_pull_quiet_warning() {
+  local repo_dir="$1"
+  local lfs_log
+
+  lfs_log="$(mktemp)"
+  if "${SUDO[@]}" git -C "$repo_dir" lfs pull >"$lfs_log" 2>&1; then
+    grep -Fv 'appears to use backslashes as path separators' "$lfs_log" || true
+    rm -f "$lfs_log"
+    return 0
+  fi
+
+  cat "$lfs_log" >&2
+  rm -f "$lfs_log"
+  return 1
+}
+
 usage() {
   cat <<'EOF'
 用法： ./bootstrap-from-github.sh <REPO_URL> [BRANCH] [TARGET_DIR] [PROJECT_SUBDIR]
@@ -103,7 +119,7 @@ else
 fi
 
 "${SUDO[@]}" git -C "$TARGET_DIR" lfs install --local
-"${SUDO[@]}" git -C "$TARGET_DIR" lfs pull
+git_lfs_pull_quiet_warning "$TARGET_DIR"
 
 DEPLOY_DIR="$TARGET_DIR/$PROJECT_SUBDIR"
 

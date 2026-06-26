@@ -353,7 +353,7 @@ ensure_compose() {
 
 ensure_base_packages() {
   apt_update
-  apt_install ca-certificates curl unzip
+  apt_install ca-certificates curl python3
 }
 
 ensure_docker() {

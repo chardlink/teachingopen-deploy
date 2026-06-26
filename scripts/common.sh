@@ -143,7 +143,8 @@ normalize_sys_file_location_for_local_mode() {
 
 normalize_default_user_avatars_for_local_mode() {
   local attempt
-  local logo_key="c76eda530e5b42328008c0d2268964a8.png"
+  local logo_key="logo.png"
+  local old_logo_keys="'c76eda530e5b42328008c0d2268964a8.png','ece547299d284576a01c988c89153397.png'"
   local legacy_avatar_hash="0F780B3652F586B8DE322195DB4D03B6A4D1135F2691B7602C58570814D3CBD2"
   local avatars
   local avatar
@@ -152,6 +153,8 @@ normalize_default_user_avatars_for_local_mode() {
   local escaped_avatar
   local sql
   local -a replace_keys=(
+    "c76eda530e5b42328008c0d2268964a8.png"
+    "ece547299d284576a01c988c89153397.png"
     "459b0970dd82460bb7292b6e7a50e2ed.png"
     "c80c1b5bdd86435094e0ae37f3add6cb.png"
     "fff10d3ca7024635a4f8e9bb512ca137.png"
@@ -213,6 +216,17 @@ WHERE avatar IS NULL
   done
 
   sql="$sql;"
+
+  sql="$sql
+UPDATE sys_config
+SET config_value = '$logo_key'
+WHERE config_key IN ('logo', 'logo2')
+  AND (config_value IS NULL OR config_value = '' OR config_value IN ($old_logo_keys));
+
+UPDATE sys_file
+SET file_path = '$logo_key'
+WHERE file_name = 'logo.png'
+  AND file_path IN ($old_logo_keys);"
 
   for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
     if docker_compose exec -T mysql sh -c \

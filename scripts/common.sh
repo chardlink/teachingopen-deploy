@@ -146,16 +146,14 @@ normalize_default_user_avatars_for_local_mode() {
   local sql="
 UPDATE sys_user
 SET avatar = 'c76eda530e5b42328008c0d2268964a8.png'
-WHERE username IN ('admin', 'teacher')
-  AND (
-    avatar IS NULL
-    OR avatar = ''
-    OR avatar = '[]'
-    OR avatar IN (
-      '459b0970dd82460bb7292b6e7a50e2ed.png',
-      'c80c1b5bdd86435094e0ae37f3add6cb.png',
-      'fff10d3ca7024635a4f8e9bb512ca137.png'
-    )
+WHERE
+  avatar IS NULL
+  OR avatar = ''
+  OR avatar = '[]'
+  OR avatar IN (
+    '459b0970dd82460bb7292b6e7a50e2ed.png',
+    'c80c1b5bdd86435094e0ae37f3add6cb.png',
+    'fff10d3ca7024635a4f8e9bb512ca137.png'
   );
 "
 

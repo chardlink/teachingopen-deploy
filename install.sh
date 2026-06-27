@@ -730,4 +730,68 @@ main() {
   offer_post_deploy_reconfigure
 }
 
+prepare_env_file() {
+  local env_file="$ROOT_DIR/.env"
+  local default_web_port="1168"
+  local default_app_debug_port="18080"
+  local ip_addr
+  local default_public_base_url
+
+  ip_addr="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  ip_addr="${ip_addr:-127.0.0.1}"
+  default_public_base_url="http://${ip_addr}:${default_web_port}"
+
+  if [[ -f "$env_file" ]]; then
+    echo
+    echo "检测到已存在的 .env 文件：$env_file"
+    show_env_summary "$env_file"
+    echo "如需修改端口或 PUBLIC_BASE_URL，请在部署完成后选择 1 进行配置。"
+    return 0
+  fi
+
+  echo
+  echo "未检测到 .env 文件，将自动创建。"
+  echo "默认值如下："
+  echo "  WEB_PORT=$default_web_port"
+  echo "  APP_DEBUG_PORT=$default_app_debug_port"
+  echo "  PUBLIC_BASE_URL=$default_public_base_url"
+
+  write_env_file "$env_file" "$default_web_port" "$default_app_debug_port" "$default_public_base_url"
+
+  echo
+  echo "已创建 .env 文件：$env_file"
+  show_env_summary "$env_file"
+  echo "如需修改端口或 PUBLIC_BASE_URL，请在部署完成后选择 1 进行配置。"
+}
+
+main() {
+  ensure_base_packages
+  ensure_docker
+  prepare_env_file
+  prepare_directories
+
+  echo
+  echo "当前 Ubuntu 模式是 Docker 容器化部署，不是宿主机原生安装。"
+  echo "这样做的目的是尽量不碰你宿主机现有的 MySQL、Redis 和 HUSTOJ 数据目录。"
+  echo "配置已准备完成，正在开始部署并启动容器..."
+
+  bash "$ROOT_DIR/scripts/prepare-web.sh"
+  prepare_ipv4_preference
+  start_stack
+
+  echo
+  echo "TeachingOpen 本地部署已启动。"
+  echo "第一次初始化可能需要几分钟。"
+  echo
+  show_access_entry
+  echo
+  echo "查看状态："
+  echo "  cd $ROOT_DIR && ./status.sh"
+  echo
+  echo "查看日志："
+  echo "  cd $ROOT_DIR && ./logs.sh"
+  echo
+  offer_post_deploy_reconfigure
+}
+
 main "$@"

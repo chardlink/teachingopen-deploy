@@ -148,6 +148,30 @@ offer_post_deploy_reconfigure() {
   done
 }
 
+offer_post_deploy_reconfigure() {
+  local reply
+
+  echo
+  echo "后续操作："
+  echo "  1. 立即配置端口和 PUBLIC_BASE_URL"
+  echo "  2. 直接退出"
+
+  while true; do
+    read -r -p "请选择 [1/2，默认 2]: " reply
+    reply="${reply:-2}"
+    case "$reply" in
+      1)
+        bash "$ROOT_DIR/reconfigure.sh"
+        return 0
+        ;;
+      2)
+        return 0
+        ;;
+    esac
+    echo "请输入 1 或 2。"
+  done
+}
+
 prompt_with_default() {
   local prompt="$1"
   local default="$2"
@@ -255,6 +279,18 @@ show_env_summary() {
   echo "  WEB_PORT=$WEB_PORT"
   echo "  APP_DEBUG_PORT=$APP_DEBUG_PORT"
   echo "  PUBLIC_BASE_URL=$PUBLIC_BASE_URL"
+}
+
+show_access_entry() {
+  local env_file="$ROOT_DIR/.env"
+
+  if [[ ! -f "$env_file" ]]; then
+    return 0
+  fi
+
+  load_env_file "$env_file"
+  echo "当前访问地址："
+  echo "  $PUBLIC_BASE_URL"
 }
 
 docker_compose_available() {
@@ -412,7 +448,7 @@ ensure_docker() {
 
 prepare_env_file() {
   local env_file="$ROOT_DIR/.env"
-  local default_web_port="8080"
+  local default_web_port="1168"
   local default_app_debug_port="18080"
   local ip_addr
   local default_public_base_url
@@ -611,14 +647,14 @@ main() {
   echo "TeachingOpen 本地部署已启动。"
   echo "第一次初始化可能需要几分钟。"
   echo
+  show_access_entry
+  echo
   echo "查看状态："
   echo "  cd $ROOT_DIR && ./status.sh"
   echo
   echo "查看日志："
   echo "  cd $ROOT_DIR && ./logs.sh"
   echo
-  echo "访问地址："
-  echo "  读取 $ROOT_DIR/.env 里的 PUBLIC_BASE_URL"
   offer_post_deploy_reconfigure
 }
 

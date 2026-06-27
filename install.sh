@@ -201,36 +201,65 @@ prompt_port() {
   done
 }
 
-find_editor() {
-  if [[ -n "${EDITOR:-}" ]] && command -v "${EDITOR}" >/dev/null 2>&1; then
-    printf '%s' "${EDITOR}"
-    return 0
-  fi
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local env_file="$3"
+  local tmp_file
 
-  for editor in nano vim vi; do
-    if command -v "$editor" >/dev/null 2>&1; then
-      printf '%s' "$editor"
-      return 0
-    fi
-  done
+  tmp_file="$(mktemp)"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { done = 0 }
+    index($0, key "=") == 1 {
+      print key "=" value
+      done = 1
+      next
+    }
+    { print }
+    END {
+      if (!done) {
+        print key "=" value
+      }
+    }
+  ' "$env_file" > "$tmp_file"
 
-  return 1
+  mv "$tmp_file" "$env_file"
 }
 
-edit_env_file() {
+interactive_modify_ports() {
   local env_file="$1"
-  local editor
+  local cur_web_port cur_app_debug_port cur_public_base_url
+  local new_web_port new_app_debug_port new_public_base_url
+  local ip_addr
 
-  if editor="$(find_editor)"; then
-    echo
-    echo "正在使用 $editor 打开 $env_file"
-    "$editor" "$env_file"
+  load_env_file "$env_file"
+  cur_web_port="${WEB_PORT:-1168}"
+  cur_app_debug_port="${APP_DEBUG_PORT:-18080}"
+  cur_public_base_url="${PUBLIC_BASE_URL:-}"
+
+  echo
+  echo "请输入新的端口值，直接按回车保留当前值。"
+
+  new_web_port="$(prompt_port "WEB_PORT" "$cur_web_port")"
+  new_app_debug_port="$(prompt_port "APP_DEBUG_PORT" "$cur_app_debug_port")"
+
+  # 自动根据新的 WEB_PORT 重新计算 PUBLIC_BASE_URL 的默认值
+  ip_addr="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  ip_addr="${ip_addr:-127.0.0.1}"
+  if [[ -n "$cur_public_base_url" ]]; then
+    # 把旧 URL 中的端口替换为新端口
+    new_public_base_url="$(echo "$cur_public_base_url" | sed "s/:${cur_web_port}/:${new_web_port}/")"
   else
-    echo
-    echo "未找到可用的文本编辑器。"
-    echo "请在另一终端手动修改 $env_file，完成后按回车继续。"
-    wait_for_enter
+    new_public_base_url="http://${ip_addr}:${new_web_port}"
   fi
+  new_public_base_url="$(prompt_with_default "请输入 PUBLIC_BASE_URL" "$new_public_base_url")"
+
+  set_env_value "WEB_PORT" "$new_web_port" "$env_file"
+  set_env_value "APP_DEBUG_PORT" "$new_app_debug_port" "$env_file"
+  set_env_value "PUBLIC_BASE_URL" "$new_public_base_url" "$env_file"
+
+  echo
+  echo "端口已更新完成。"
 }
 
 rand_hex() {
@@ -464,8 +493,8 @@ prepare_env_file() {
     echo
     echo "检测到已存在的 .env 文件：$env_file"
     show_env_summary "$env_file"
-    if prompt_yes_no "部署前是否先手动修改 .env？" N; then
-      edit_env_file "$env_file"
+    if prompt_yes_no "部署前是否修改端口配置？" N; then
+      interactive_modify_ports "$env_file"
       show_env_summary "$env_file"
     fi
     return 0
@@ -494,8 +523,8 @@ prepare_env_file() {
   echo "已创建 .env 文件：$env_file"
   show_env_summary "$env_file"
 
-  if prompt_yes_no "启动部署前，是否现在手动打开 .env 再修改一次？" N; then
-    edit_env_file "$env_file"
+  if prompt_yes_no "启动部署前，是否修改端口配置？" N; then
+    interactive_modify_ports "$env_file"
     show_env_summary "$env_file"
   fi
 }

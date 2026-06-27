@@ -113,7 +113,7 @@ prompt_yes_no() {
   fi
 
   while true; do
-    read -r -p "$prompt $suffix " reply
+    prompt_read reply "$prompt $suffix "
     reply="${reply:-$default}"
     normalized="$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]')"
     case "$normalized" in
@@ -177,7 +177,7 @@ prompt_with_default() {
   local default="$2"
   local reply
 
-  read -r -p "$prompt [$default]: " reply
+  prompt_read reply "$prompt [$default]: "
   printf '%s' "${reply:-$default}"
 }
 
@@ -229,7 +229,7 @@ edit_env_file() {
     echo
     echo "未找到可用的文本编辑器。"
     echo "请在另一终端手动修改 $env_file，完成后按回车继续。"
-    read -r
+    wait_for_enter
   fi
 }
 
@@ -620,6 +620,49 @@ prepare_ipv4_preference() {
   echo "检测到系统 IPv6 尚未禁用。"
   echo "正在预先禁用 IPv6 并配置 /etc/hosts，避免 Docker 走 IPv6 连接 Docker Hub 被重置..."
   "${SUDO[@]}" env NONINTERACTIVE=yes PREFER_IPV4=yes bash "$ROOT_DIR/configure-docker-mirror.sh"
+}
+
+prompt_read() {
+  local __var_name="$1"
+  local __prompt="$2"
+
+  if [[ -r /dev/tty ]]; then
+    read -r -p "$__prompt" "$__var_name" < /dev/tty
+  else
+    read -r -p "$__prompt" "$__var_name"
+  fi
+}
+
+wait_for_enter() {
+  if [[ -r /dev/tty ]]; then
+    read -r < /dev/tty
+  else
+    read -r
+  fi
+}
+
+offer_post_deploy_reconfigure() {
+  local reply
+
+  echo
+  echo "后续操作："
+  echo "  1. 立即配置端口和 PUBLIC_BASE_URL"
+  echo "  2. 直接退出"
+
+  while true; do
+    prompt_read reply "请选择 [1/2，默认 2]: "
+    reply="${reply:-2}"
+    case "$reply" in
+      1)
+        bash "$ROOT_DIR/reconfigure.sh"
+        return 0
+        ;;
+      2)
+        return 0
+        ;;
+    esac
+    echo "请输入 1 或 2。"
+  done
 }
 
 main() {

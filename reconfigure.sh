@@ -12,6 +12,17 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
+prompt_read() {
+  local __var_name="$1"
+  local __prompt="$2"
+
+  if [[ -r /dev/tty ]]; then
+    read -r -p "$__prompt" "$__var_name" < /dev/tty
+  else
+    read -r -p "$__prompt" "$__var_name"
+  fi
+}
+
 prompt_yes_no() {
   local prompt="$1"
   local default="${2:-Y}"
@@ -24,7 +35,7 @@ prompt_yes_no() {
   fi
 
   while true; do
-    read -r -p "$prompt $suffix " reply
+    prompt_read reply "$prompt $suffix "
     reply="${reply:-$default}"
     normalized="$(printf '%s' "$reply" | tr '[:upper:]' '[:lower:]')"
     case "$normalized" in
@@ -40,7 +51,7 @@ prompt_with_default() {
   local default="$2"
   local reply
 
-  read -r -p "$prompt [$default]: " reply
+  prompt_read reply "$prompt [$default]: "
   printf '%s' "${reply:-$default}"
 }
 

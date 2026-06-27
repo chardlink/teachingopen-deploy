@@ -40,7 +40,7 @@ teachingopen
 ```yaml
 services:
   mysql:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0
+    image: chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -53,7 +53,7 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   redis:
-    image: m.daocloud.io/docker.io/library/redis:6.2-alpine
+    image: redis:6.2-alpine
     container_name: teachingopen-redis
     restart: unless-stopped
     command: >
@@ -65,7 +65,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0
+    image: chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -90,7 +90,7 @@ services:
       - ./data/logs:/data/logs
 
   kkfileview:
-    image: m.daocloud.io/docker.io/keking/kkfileview:latest
+    image: keking/kkfileview:latest
     container_name: teachingopen-kkfileview
     restart: unless-stopped
     environment:
@@ -99,7 +99,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0
+    image: chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -115,9 +115,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
+- `chardchao/teachingopen-mysql:2.8.0`
+- `chardchao/teachingopen-app:2.8.0`
+- `chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码
@@ -157,3 +157,4 @@ http://群晖IP:8080
 - `teachingopen-web`
 
 如果镜像还没有发布，那么群晖这里就还不能直接拉起。
+

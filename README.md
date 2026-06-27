@@ -56,7 +56,7 @@ sudo ./update.sh
 
 - 清华 TUNA 这里解决的是 `Docker` 软件包安装来源
 - 真正的容器镜像拉取，不是走 TUNA 的 `docker-ce` 软件源
-- 所以项目里的容器镜像默认已经改成 `m.daocloud.io/docker.io/...` 这一类镜像加速入口，避免继续直连 `registry-1.docker.io`
+- 所以项目里的容器镜像默认保持标准 Docker Hub 镜像名；如需国内加速，请通过 Docker daemon 镜像源、代理或群晖自身镜像加速配置处理，不要直接把 daocloud 前缀写进 `image:`。
 
 如果后续要改端口或外网入口，执行：
 
@@ -124,12 +124,12 @@ teachingopen
 
 ### 第 3 步：直接复制下面这段内容
 
-把下面整段内容直接粘贴进去，然后只改你自己的群晖 IP、端口和密码即可。这里默认已经改成国内更容易拉取的镜像入口：
+把下面整段内容直接粘贴进去，然后只改你自己的群晖 IP、端口和密码即可。这里默认使用标准 Docker Hub 镜像名；如需国内加速，请在群晖自己的 Docker / Container Manager 里配置镜像加速，不要手动给 `image:` 加 daocloud 前缀：
 
 ```yaml
 services:
   mysql:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0
+    image: chardchao/teachingopen-mysql:2.8.0
     container_name: teachingopen-mysql
     restart: unless-stopped
     environment:
@@ -142,7 +142,7 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   redis:
-    image: m.daocloud.io/docker.io/library/redis:6.2-alpine
+    image: redis:6.2-alpine
     container_name: teachingopen-redis
     restart: unless-stopped
     command: >
@@ -154,7 +154,7 @@ services:
       - ./data/redis:/data
 
   app:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0
+    image: chardchao/teachingopen-app:2.8.0
     container_name: teachingopen-app
     restart: unless-stopped
     depends_on:
@@ -179,7 +179,7 @@ services:
       - ./data/logs:/data/logs
 
   kkfileview:
-    image: m.daocloud.io/docker.io/keking/kkfileview:latest
+    image: keking/kkfileview:latest
     container_name: teachingopen-kkfileview
     restart: unless-stopped
     environment:
@@ -188,7 +188,7 @@ services:
       - ./data/kkfileview:/opt/kkFileView
 
   nginx:
-    image: m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0
+    image: chardchao/teachingopen-web:2.8.0
     container_name: teachingopen-nginx
     restart: unless-stopped
     depends_on:
@@ -204,9 +204,9 @@ services:
 
 粘贴完之后，重点只改这几处：
 
-- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
+- `chardchao/teachingopen-mysql:2.8.0`
+- `chardchao/teachingopen-app:2.8.0`
+- `chardchao/teachingopen-web:2.8.0`
 - `http://192.168.1.100:8080`
 - `"8080:80"`
 - 三个密码
@@ -292,11 +292,11 @@ IMAGE_NAMESPACE=chardchao IMAGE_TAG=2.8.0 ./docker-push-images.sh
 
 Ubuntu 方案会启动以下服务：
 
-- `m.daocloud.io/docker.io/chardchao/teachingopen-mysql:2.8.0`
-- `m.daocloud.io/docker.io/library/redis:6.2-alpine`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-app:2.8.0`
-- `m.daocloud.io/docker.io/chardchao/teachingopen-web:2.8.0`
-- `m.daocloud.io/docker.io/keking/kkfileview:latest`
+- `chardchao/teachingopen-mysql:2.8.0`
+- `redis:6.2-alpine`
+- `chardchao/teachingopen-app:2.8.0`
+- `chardchao/teachingopen-web:2.8.0`
+- `keking/kkfileview:latest`
 
 群晖方案在此基础上额外包含：
 
@@ -840,3 +840,4 @@ cd /opt/teachingopen-source
 
 - 全新安装使用的是 `assets/teachingopen2.8.sql`
 - `assets/update2.8.sql` 仅作为升级参考保留
+

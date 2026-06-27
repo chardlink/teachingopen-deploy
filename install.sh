@@ -124,6 +124,30 @@ prompt_yes_no() {
   done
 }
 
+offer_post_deploy_reconfigure() {
+  local reply
+
+  echo
+  echo "鍚庣画鎿嶄綔锛"
+  echo "  1. 绔嬪嵆閰嶇疆 WEB_PORT / APP_DEBUG_PORT / PUBLIC_BASE_URL"
+  echo "  2. 鐩存帴閫€鍑?"
+
+  while true; do
+    read -r -p "璇烽€夋嫨 [1/2锛岄粯璁?2]: " reply
+    reply="${reply:-2}"
+    case "$reply" in
+      1)
+        bash "$ROOT_DIR/reconfigure.sh"
+        return 0
+        ;;
+      2)
+        return 0
+        ;;
+    esac
+    echo "璇疯緭鍏?1 鎴?2銆?"
+  done
+}
+
 prompt_with_default() {
   local prompt="$1"
   local default="$2"
@@ -595,6 +619,7 @@ main() {
   echo
   echo "访问地址："
   echo "  读取 $ROOT_DIR/.env 里的 PUBLIC_BASE_URL"
+  offer_post_deploy_reconfigure
 }
 
 main "$@"

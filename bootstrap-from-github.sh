@@ -11,6 +11,31 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+retry() {
+  local attempts="$1"
+  local delay_seconds="$2"
+  shift 2
+
+  local attempt=1
+  while true; do
+    if "$@"; then
+      return 0
+    fi
+
+    if (( attempt >= attempts )); then
+      return 1
+    fi
+
+    echo "命令失败，${delay_seconds} 秒后重试（${attempt}/${attempts}）..." >&2
+    sleep "$delay_seconds"
+    attempt=$((attempt + 1))
+  done
+}
+
+git_http_cmd() {
+  "${SUDO[@]}" git -c http.version=HTTP/1.1 "$@"
+}
+
 ensure_git() {
   if ! need_cmd git; then
     "${SUDO[@]}" apt-get update
@@ -90,7 +115,7 @@ backup_local_repo_changes() {
 sync_existing_repo() {
   echo "检测到已存在仓库，开始更新：$TARGET_DIR"
   "${SUDO[@]}" git -C "$TARGET_DIR" remote set-url origin "$REPO_URL"
-  "${SUDO[@]}" git -C "$TARGET_DIR" fetch --all --tags
+  retry 3 5 git_http_cmd -C "$TARGET_DIR" fetch --all --tags
 
   backup_local_repo_changes "$TARGET_DIR"
 
@@ -115,7 +140,12 @@ if [[ -d "$TARGET_DIR/.git" ]]; then
   sync_existing_repo
 else
   echo "开始克隆仓库：$REPO_URL"
-  "${SUDO[@]}" git clone --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"
+  if ! retry 3 5 git_http_cmd clone --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"; then
+    echo "GitHub 仓库拉取失败。"
+    echo "这通常是当前服务器到 GitHub 的 TLS/网络问题，不是 TeachingOpen 业务代码问题。"
+    echo "脚本已经自动按 HTTP/1.1 重试 3 次；如果仍失败，请稍后重试，或先确认服务器能稳定访问 github.com。"
+    exit 1
+  fi
 fi
 
 "${SUDO[@]}" git -C "$TARGET_DIR" lfs install --local
